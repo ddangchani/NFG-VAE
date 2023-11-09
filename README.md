@@ -19,7 +19,7 @@
 - `Tex/` : Latex files for report
 - `model.py` : VAE, NF code
 - `train.py` : main code for run model training
-- `data.py` : code for generating data
+- `data.py` : ~~code for generating data~~ (clear!)
 - `utils.py` : code for evaluation(metric)
 
 ## Code Sources
