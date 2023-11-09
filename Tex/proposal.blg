@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d (TeX Live 2023)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: proposal.aux
+The style file: ieeetr.bst
+Database file #1: references.bib
+Warning--empty journal in yu2019daggnn
+You've used 19 entries,
+            1876 wiz_defined-function locations,
+            574 strings with 6387 characters,
+and the built_in function-call counts, 3803 in all, are:
+= -- 306
+> -- 238
+< -- 0
++ -- 86
+- -- 67
+* -- 269
+:= -- 590
+add.period$ -- 20
+call.type$ -- 19
+change.case$ -- 19
+chr.to.int$ -- 0
+cite$ -- 20
+duplicate$ -- 158
+empty$ -- 384
+format.name$ -- 67
+if$ -- 904
+int.to.chr$ -- 0
+int.to.str$ -- 19
+missing$ -- 11
+newline$ -- 61
+num.names$ -- 19
+pop$ -- 98
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 102
+stack$ -- 0
+substring$ -- 100
+swap$ -- 39
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 1
+while$ -- 27
+width$ -- 21
+write$ -- 157
+(There was 1 warning)

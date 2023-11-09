@@ -1,0 +1,144 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{mathrsfs}
+\usepackage{amssymb}
+\usepackage[version=4]{mhchem}
+\usepackage{stmaryrd}
+\usepackage{bbold}
+\usepackage{enumitem}
+\usepackage{hanging} %reference indent
+\usepackage[a4paper,left=25mm,right=25mm,top=40mm,bottom=40mm]{geometry}
+\usepackage{sectsty}
+\sectionfont{\fontsize{10}{15}\selectfont}
+\subsectionfont{\fontsize{10}{15}}
+\usepackage[mathlines,switch]{lineno}
+\usepackage{amsthm}
+\usepackage{kotex}
+\usepackage{xcolor}
+\usepackage{graphicx} % insert image
+\usepackage{multicol} % multi column
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{multirow} % multirow in table
+\usepackage{tikz}
+\usepackage{subcaption}
+\modulolinenumbers[5]
+% \linenumbers
+
+\usepackage{titlesec}
+\titleformat{\section}
+{\normalfont\fontsize{12}{12}\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+{\normalfont\fontsize{12}{12}\bfseries}{\thesubsection}{1em}{}
+\titlespacing{\paragraph}{0pt}{\parskip}{5pt}
+
+\usepackage{indentfirst} % first line indent
+\setlength{\parindent}{10pt}
+
+\renewcommand{\arraystretch}{1.1}
+
+\title{\textbf{Latent space of VAE for DAG learning}}
+
+
+\author{김당찬, 강병국, 김재석, 김민찬}
+
+\begin{document}
+\maketitle
+
+\section{Research Objective}
+
+본 연구의 목적은 VAE(Variational AutoEncoder)를 기반으로 한 GNN(Graph neural network)의 잠재공간(latent space)에 대한 통계적 접근 및 해석 방법을 찾는 것이다. 일반적으로 linear SEM 가정에서 VAE를 이용하면 노이즈 행렬을 잠재변수(latent variable)로 간주할 수 있다. 이때 노이즈 확률변수가 잠재변수에 대응되기 때문에, Gaussian 노이즈의 경우 정규사전분포를 사용할 수 있으나 non-Gaussian 분포를 따르는 경우 사전분포 설정이 어렵다는 문제가 존재한다. \\ 
+
+이에, 본 연구에서는 잠재공간의 구조와 분포에 대한 통계적 해석을 진행한다. 구체적으로 VAE에서의 reparametrization trick을 이용하기 위해 non-Gaussian prior에 대한 surrogate distribution 혹은을 이용한다. 이를 통해 적절한 approximated prior distribution를 도출하여 non-Gaussian linear SEM을 학습하는 방법을 제안하고자 한다. 또한, 이를 바탕으로 랜덤 생성된 non-Gaussian DAG에 대한 시뮬레이션과 document 데이터 등의 실제 데이터에 대한 실험을 진행한다.
+
+\section{Preliminary Results}
+
+\subsection{DAG and Linear SEM}
+
+DAG $\mathcal{G}=(V,E)$가 $|V|=m$ 개의 노드를 갖고 가중인접행렬(weighted adjacency matrix) $A\in\mathbb R^{m\times m}$ 을 갖는다고 가정하자. $m$개의 각 노드는 random variable에 대응되는데, 이때 faithful joint distribution으로부터 얻은 표본을 $X\in\mathbb R^{m\times d}$ 라고 하자. Linear SEM에서는 그래프 구조에 대해 다음을 가정한다.
+\begin{align}
+    X &= A^TX+Z \\
+    &= (I-A^T)^{-1}Z. \label{linearSEM}
+\end{align}
+행렬 $Z\in\mathbb R^{m\times d}$는 노이즈 행렬을 나타낸다. DAG에서는 topological sorting으로 인접행렬이 상삼각행렬이 되므로, 두번째 식이 성립한다. \\
+
+DAG 학습은 DAG의 구조를 주어진 데이터로부터 재구성하는 것이다. 그러나 이는 NP-hard problem에 해당한다. \cite{ChickeringNPhard} 이로 인해 다양한 가정을 기반으로 한 DAG 학습 알고리즘들이 존재한다. 학습 알고리즘에는 크게 Constraint-based methods \cite{Spirtes2000} 와 Score-based methods \cite{ChickeringGES} 가 있다. 또한 보통 이런 방법들은 변수 사이의 functional form을 가정하고 학습하는데, 위의 경우처럼 (식 \ref*{linearSEM}) linear SEM을 가정할 수 있다 \cite{GhoshalSEM}. Score-based methods는 DAG의 search space가 너무 큰 combinatorial problem, 즉 노드의 개수 증가에 따라 score를 고려해야 하는 DAG의 갯수가 superexponential하게 증가하는 문제가 있었는데, 근래 이를 continuous optimization 문제로 해결한 방법도 제안되었다 \cite{zheng2018dags}. 이를 토대로 DAG learning을 Deep learning Framework에서 진행할 수 있게 되었다.
+
+\subsection{Variational Autoencoder}
+
+VAE\cite{kingma2013auto}에서는 데이터 $x$가 잠재변수 $z$로부터 생성된다고 가정한다. 입력변수 $x$의 분포 $p_{\theta}(x)$나, 잠재변수 $z$의 사후분포 $p_{\theta}(z|x)$는 직접 계산하기 어렵기에(intractable), true posterior $p_{\theta}(z|x)$를 근사하는 다른 분포족 $q_{\phi}(z|x)$를 도입한다. 이로부터 $x$의 가능도함수는 다음과 같이 표현된다. \\
+
+\begin{equation}
+    \log p_{\theta}(x) = D_{KL}(q_{\phi}(z|x)||p_{\theta}(z|x)) -D_{KL}(q_{\phi}(z|x)||p_{\theta}(z)) + \mathbb{E}_{q_{\phi}(z|x)}[\log{p_{\theta}(x|z)}]
+\end{equation}
+
+이로부터 VAE의 목적함수인 ELBO(evidence lower bound)는 다음과 같이 정의된다. VAE에서는 ELBO를 최대화하여 로그가능도를 최대화하고, 사후분포와 그 근사분포의 KL 발산을 최소화한다.
+\begin{eqnarray*}
+\mathcal{L}(\theta,\phi, x) := -D_{KL}(q_{\phi}(z|x)||p_{\theta}(z)) + \mathbb{E}_{q_{\phi}(z|x)}[\log{p_{\theta}(x|z)}]
+  \label{ELBO}
+\end{eqnarray*}
+
+\paragraph*{reparametrization trick}
+
+VAE와 같은 stochastic variational inference에서는 reparametrization trick으로 \cite{reparametrization} $\phi$에 대한 gradient 계산을 간접적으로 수행한다. 조건부분포 $q_{\phi}(z|x)$ 로부터 표본을 추출하는 대신, 확률변수 $\epsilon \sim p(\epsilon)$을 도입해 다음과 같이 $z$를 deterministic, differentiable $z=g_{\phi}(\epsilon, x)$ 로 reparametrization하여 나타낸다.
+
+\begin{equation}
+\mathbb{E}_{q_{\phi}(z|x)}[- \log{q_{\phi}(z|x)} + \log{p_{\theta}(x,z)}] = \mathbb{E}_{p(\epsilon)}[- \log{q_{\phi}(g_{\phi}(\epsilon, x)|x)} + \log{p_{\theta}(x,g_{\phi}(\epsilon, x))}]
+\label{reparametrization}
+\end{equation}
+
+\paragraph*{Latent space of VAE}
+
+VAE에서 정의되는 잠재공간는 데이터의 representation을 저차원의 잠재변수로 표현한 것이다. 인코더에 대한 특정 approximation과 디코더에 대한 orthogonality 제약조건을 하에서 PCA와 VAE가 유사한 latent spcae를 갖는다는 것이 알려져 있다. \cite{rolinek2019variational} 
+
+\subsection{Graph Neural Network}
+
+Linear SEM 식 (\ref*{linearSEM})를 $X=f_A(Z)$ 라고 표기하면, 이는 일반적인 GNN의 기본 구조가 되며 나아가 다음과 같은 generalized linear SEM도 고려할 수 있다. \cite{yu2019daggnn} 
+\begin{equation}
+    X = f_2((I-A^T)^{-1}f_1(Z))
+    \label{gSEM}
+\end{equation}
+
+$f_1,f_2$에 신경망 구조를 가정하면, 이는 autoencoder 형태의 모형이 된다.
+
+\subsubsection*{Latent variable for Graph data}
+
+Graph structured data를 VAE와 같이 잠재공간 기반의 모델로 다루기 위해서는 잠재변수에 대한 설정이 필요하다. Table 1은 graph structured data를 다룬 여러 VAE 선행연구들에서 잠재공간의 구조가 어떤 형태로 가정되었는지 정리한 표이다.
+
+% Table 1
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{|l|c|c|}
+        \hline
+        \textbf{Model} & \textbf{Latent variable} & \textbf{Prior} \\
+        \hline
+        DAG-GNN\cite{yu2019daggnn} & Noise matrix from Linear SEM, $Z\in\mathbb{R}^{m\times d}$& $\mathcal{MN}_{m,d}(0,I,I)$ \\
+        \hline
+        VGAE\cite{kipf2016variational} & stochastic latent variable, $Z\in\mathbb{R}^{n\times d}$ & $\mathcal{N}(0,I)$ \\
+        \hline
+        \multirow{2}{4em}{CausalVAE\cite{Yang_2021_CVPR}} & Endogeneous latent variable $\bf z\in\mathbb{R}^n$ & $\bf z = \mathbf{A}^T \bf z + \bf u$ \\
+        & Exogeneous latent variable $\bf u\in\mathbb{R}^n$ & $\bf u\sim\mathcal{N}(0,I)$ \\
+        \hline
+        Dirichlet Graph VAE\cite{li2020dirichlet} & cluster membership of each node, $Z_i$ & $Z_i\sim\mathcal{D}(\alpha)$ \\
+        \hline
+        \end{tabular}
+        \caption{Different latent structure of VAEs for graph-structured data}
+\end{table}
+
+\section{Experiment}
+
+실험 과정은 simulation study와 application study를 진행한다. Simulation에서는, Erdös-Rényi model \cite{erdds1959random}로 random DAG에 대한 데이터를 생성하여, 제안된 모델을 바탕으로 학습 및 평가를 진행한다. 문서 데이터에는 GNN 기반 학습 방법이 다수 제안된 바 있다. \cite{peng2017crosssentence,marcheggiani2017encoding,schlichtkrull2017modeling,zhang2020document} 다만, citation network \cite{CLOUGH2016235} 와 같이 text(document) 사이의 관계를 나타내는 그래프 데이터의 경우, DAG 기반의 분석이 가능하다. \cite{wuetal2011} 이러한 데이터에 대해 제안된 모델을 적용해 보고자 한다. 모델의 성능 평가의 경우 SHD(Structural Hamming Distance)와 FDR(False Discovery Rate)를 사용한다. \cite{yu2019daggnn}
+
+
+% Biblography
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}
+
