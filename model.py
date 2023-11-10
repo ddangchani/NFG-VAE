@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as D
+from torch.autograd import Variable
 import torch.nn.utils.weight_norm as wn
 import math
 
@@ -21,7 +22,7 @@ class Encoder(nn.Module):
         self.adj_A = nn.Parameter(Variable(torch.from_numpy(args.adj_A).double(), requires_grad=True))
         self.factor = args.factor
 
-        self.Wa = nn.Parameter(torch.zeros(args.n_out), requires_grad=True)
+        self.Wa = nn.Parameter(torch.zeros(args.n_out), requires_grad=True) # Learnable parameter
         self.fc1 = nn.Linear(args.n_xdims, args.n_hid, bias = True)
         self.fc2 = nn.Linear(args.n_hid, args.n_out, bias = True)
         self.dropout_prob = args.do_prob
@@ -38,7 +39,7 @@ class Encoder(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
     
-     def forward(self, inputs, rel_rec, rel_send):
+    def forward(self, inputs, rel_rec, rel_send):
 
         if torch.sum(self.adj_A != self.adj_A):
             print('nan error \n')
@@ -113,8 +114,18 @@ class Decoder(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-    def forward(self, ...):
-            
-        return ...
+    def forward(self, input_z, origin_A, Wa):
+        # Wa : Encoder에서 학습한 parameter
+        
+        # adj_A_new_inv = $(I-A^T)^{-1}$
+        adj_A_new_inv = torch.inverse(torch.eye(origin_A.shape[0]).double() 
+                                      - origin_A.transpose(0,1))
+
+        mat_z = torch.matmul(adj_A_new_inv, input_z + Wa) - Wa
+
+        H3 = F.relu((self.out_fc1(mat_z)))
+        out = self.out_fc2(H3)
+
+        return mat_z, out
 
         
