@@ -1,9 +1,4 @@
-# What to do?
-
-
-# 1. Metric functions
-
-# 2. utils.py from DAG-GNN
+# utils.py from DAG-GNN
 # removed all codes for generating data: it will be included in data.py
 
 import numpy as np
@@ -40,13 +35,12 @@ def count_accuracy(G_true: nx.DiGraph,
         G_true: ground truth graph
         G: predicted graph
         G_und: predicted undirected edges in CPDAG, asymmetric
-
     Returns:
         fdr: (reverse + false positive) / prediction positive
         tpr: (true positive) / condition positive
         fpr: (reverse + false positive) / condition negative
-        shd: undirected extra + undirected missing + reverse
-        nnz: prediction positive
+        shd: undirected extra + undirected missing + reverse (Structural Hamming Distance)
+        pred_size: number of predicted edges
     """
     B_true = nx.to_numpy_array(G_true) != 0
     B = nx.to_numpy_array(G) != 0
@@ -575,3 +569,5 @@ def compute_local_BiCScore(np_data, target, parents):
     bic = loglik - 0.5 * math.log(sample_size) * num_param
 
     return bic
+
+# 2. Some useful functions for modeling
