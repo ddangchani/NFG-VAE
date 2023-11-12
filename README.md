@@ -17,6 +17,7 @@
 
 - `References/` : Codes used for this project
 - `Tex/` : Latex files for report
+- `results/` : Results of experiments
 - `model.py` : VAE, NF code
 - `train.py` : main code for run model training
 - `data.py` : ~~code for generating data~~ (clear!)
