@@ -6,6 +6,8 @@ import argparse
 
 import torch
 from torch.optim import lr_scheduler
+from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.dataset import TensorDataset
 import math
 import numpy as np
 from utils import *
@@ -75,9 +77,14 @@ parser.add_argument('--encoder-dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--decoder-dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
+parser.add_argument('--lr-decay', type=int, default=200,
+                    help='After how epochs to decay LR by a factor of gamma.')
+parser.add_argument('--gamma', type=float, default= 1.0,
+                    help='LR decay factor.')
 
 
 args = parser.parse_args()
+print(args.dependence_type)
 
 # Device configuration (GPU or MPS or CPU)
 
@@ -94,8 +101,8 @@ torch.manual_seed(args.seed)
 # Folder to save the results, models, dataset
 
 now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-if args.dependece_type == 1:
-    folder = f'results/dependence/{args.dependence_prop * 100}%_dependence/{now}'
+if args.dependence_type == 1:
+    folder = f'results/dependence/{now}'
 else:
     folder = f'results/independence/{args.graph_dist}/{now}'
 
@@ -112,22 +119,109 @@ log = open(log_file, 'w')
 
 pickle.dump(args, open(meta_file, 'wb'))
 
-# 2. Data Loading
+# 2. Load Data
+
+# 2.1. Generate DAG
+G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.seed)
+
+# 2.2. Generate Data
+if args.dependence_type == 1:
+    X = generate_linear_sem_correlated(G, args.data_sample_size, args.dependence_prop, args.seed)
+else:
+    X = generate_linear_sem(graph=G, n=args.data_sample_size, dist=args.graph_dist, linear_type=args.graph_linear_type, loc=args.graph_mean, scale=args.graph_scale, seed=args.seed)
+
+# save X to file
+data_file = os.path.join(folder, 'data.pkl')
+pickle.dump(X, open(data_file, 'wb'))
 
 
+# 2.3. To Pytorch Tensor(VAE)
+
+feat_train = torch.FloatTensor(X).to(device)
+feat_valid = torch.FloatTensor(X).to(device)
+feat_test = torch.FloatTensor(X).to(device)
+
+train_data = TensorDataset(feat_train, feat_train)
+valid_data = TensorDataset(feat_valid, feat_valid)
+test_data = TensorDataset(feat_test, feat_train)
+
+train_data_loader = DataLoader(train_data, batch_size=args.batch_size)
+valid_data_loader = DataLoader(valid_data, batch_size=args.batch_size)
+test_data_loader = DataLoader(test_data, batch_size=args.batch_size)
 
 
+# 3. Load Model
 
+off_diag = np.ones([args.node_size, args.node_size]) - np.eye(args.node_size)
+rel_rec = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float64)
+rel_send = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float64)
+rel_rec = torch.DoubleTensor(rel_rec).to(device)
+rel_send = torch.DoubleTensor(rel_send).to(device)
+triu_indices = get_triu_indices(args.node_size).to(device)
+tril_indices = get_tril_indices(args.node_size).to(device)
 
-# 3. Model Loading
+rel_rec = Variable(rel_rec)
+rel_send = Variable(rel_send)
 
+# Adjacency Matrix
+adj_A = np.zeros([args.node_size, args.node_size])
 
+# 3.1. Encoder and Decoder
+encoder = Encoder().to(device)
+decoder = Decoder().to(device)
 
+# 3.2. Flow Layer
+flow = FlowLayer().to(device)
 
+# 3.3. Optimizer
+if args.optimizer == 'Adam':
+    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()) + list(flow.parameters()), lr=args.lr)
+elif args.optimizer == 'SGD':
+    optimizer = torch.optim.SGD(list(encoder.parameters()) + list(decoder.parameters()) + list(flow.parameters()), lr=args.lr, momentum=0.9, nesterov=True)
+elif args.optimizer == 'LBFGS':
+    optimizer = torch.optim.LBFGS(list(encoder.parameters()) + list(decoder.parameters()) + list(flow.parameters()), lr=args.lr, max_iter=20, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
+else:
+    raise ValueError('Optimizer not recognized.')
 
+# 3.4. Learning Rate Scheduler
+scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lr_decay, gamma=args.gamma)
+
+# compute constraint h(A) value
+def _h_A(A, m):
+    expm_A = matrix_poly(A*A, m)
+    h_A = torch.trace(expm_A) - mf
+    return h_A
+
+prox_plus = torch.nn.Threshold(0.,0.)
+
+def stau(w, tau):
+    w1 = prox_plus(torch.abs(w)-tau)
+    return torch.sign(w)*w1
+
+def update_optimizer(optimizer, original_lr, c_A):
+    '''related LR to c_A, whenever c_A gets big, reduce LR proportionally'''
+    MAX_LR = 1e-2
+    MIN_LR = 1e-4
+
+    estimated_lr = original_lr / (math.log10(c_A) + 1e-10)
+    if estimated_lr > MAX_LR:
+        lr = MAX_LR
+    elif estimated_lr < MIN_LR:
+        lr = MIN_LR
+    else:
+        lr = estimated_lr
+
+    # set LR
+    for parame_group in optimizer.param_groups:
+        parame_group['lr'] = lr
+
+    return optimizer, lr
 
 # 4. Training Loop (epoch, batch, loss, optimizer, etc.)
 
+def train():
+
+    return ...
 
 
 
