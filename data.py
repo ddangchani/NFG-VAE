@@ -98,7 +98,8 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
                                  n : int, prop : float, seed = 0):
 
     """
-    Generate a linear SEM with noise dependence structure
+    Generate a linear SEM with noise dependence structure on given proportion of edges
+    Noise is generated from a multivariate normal distribution with a generated correlation matrix
 
     Args:
         graph: nx.DiGraph object
@@ -124,31 +125,28 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     selected_edge_indices = np.random.choice(np.arange(e), size = num_corr, replace=False)
     selected_edges = np.array(graph.edges())[selected_edge_indices]
 
-    # generate correlated noise structure
-    noise_corr = generate_correlation_matrix(num_corr, seed = seed)
-    noise_uncorr = np.eye(num_uncorr)
+    max_iterations = 1000
+    iterations = 0
 
-    # construct covariance matrix
-    cov = np.block([[noise_corr, np.zeros((num_corr, num_uncorr))],
-                    [np.zeros((num_uncorr, num_corr)), noise_uncorr]])
-    
-    # permuted covariance matrix to get correlated noise
-    
+    while True:
+    # cov matrix
+        cov = np.eye(m)
+
+        for edge in selected_edges:
+                r = np.random.uniform(low = -1, high = 1)
+                cov[edge[0], edge[1]] = r
+                cov[edge[1], edge[0]] = r
+
+        if is_positive_semidefinite(cov):
+            break
+
+        iterations += 1
+        if iterations > max_iterations:
+            raise Exception("Maximum number of iterations exceeded. Failed to generate a positive semidefinite covariance matrix.")
 
 
-
-    # # generate correlated noise
-    # noise_corr = generate_correlation_matrix(num_corr, seed=seed)
-    # noise_uncorr = np.eye(num_uncorr)
-    # cov = np.block([[noise_corr, np.zeros((num_corr, num_uncorr))],
-    #                 [np.zeros((num_uncorr, num_corr)), noise_uncorr]])
-
-    # # Permuted covariance matrix to get correlated noise
-    # perm = np.random.permutation(np.eye(m))
-    # cov = perm.T @ cov @ perm
-
-    # # generate noise
-    # noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n) 
+    # generate noise
+    noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n) 
 
     # generate data
     for i in ordered_nodes:
@@ -156,7 +154,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         eta = np.dot(X[:, parents], A[parents, i])
         X[:, i] = eta.flatten() + noise[:, i]
 
-    return X
+    return X, cov
 
 
 # Generating correlation matrix
@@ -179,3 +177,6 @@ def generate_correlation_matrix(size, seed=0):
     correlation_matrix = symmetric_A / np.outer(row_norms, row_norms)
 
     return correlation_matrix
+
+def is_positive_semidefinite(matrix):
+    return np.all(np.linalg.eigvals(matrix) >= 0)
