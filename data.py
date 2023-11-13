@@ -125,25 +125,19 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     selected_edge_indices = np.random.choice(np.arange(e), size = num_corr, replace=False)
     selected_edges = np.array(graph.edges())[selected_edge_indices]
 
-    max_iterations = 1000
-    iterations = 0
+    # generate covaraince matrix
+    cov = np.eye(m)
 
-    while True:
-    # cov matrix
-        cov = np.eye(m)
+    for edge in selected_edges:
+        r = np.random.uniform(low = -1.0, high = 1.0)
+        cov[edge[0], edge[1]] = r
+        cov[edge[1], edge[0]] = r
 
-        for edge in selected_edges:
-                r = np.random.uniform(low = -1, high = 1)
-                cov[edge[0], edge[1]] = r
-                cov[edge[1], edge[0]] = r
+    cov_prev = cov.copy()
 
-        if is_positive_semidefinite(cov):
-            break
-
-        iterations += 1
-        if iterations > max_iterations:
-            raise Exception("Maximum number of iterations exceeded. Failed to generate a positive semidefinite covariance matrix.")
-
+    # make covariance matrix p.s.d and normalize to unit variance
+    cov = adjust_cov_matrix(cov)
+    cov = normalize_cov_matrix(cov)
 
     # generate noise
     noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n) 
@@ -154,7 +148,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         eta = np.dot(X[:, parents], A[parents, i])
         X[:, i] = eta.flatten() + noise[:, i]
 
-    return X, cov
+    return X
 
 
 # Generating correlation matrix
@@ -180,3 +174,14 @@ def generate_correlation_matrix(size, seed=0):
 
 def is_positive_semidefinite(matrix):
     return np.all(np.linalg.eigvals(matrix) >= 0)
+
+def adjust_cov_matrix(cov):
+    min_eig = np.min(np.real(np.linalg.eigvals(cov)))
+    if min_eig < 0:
+        cov -= 10*min_eig * np.eye(*cov.shape)
+    return cov
+
+def normalize_cov_matrix(cov):
+    std_devs = np.sqrt(np.diag(cov))
+    cov = cov / np.outer(std_devs, std_devs)
+    return cov
