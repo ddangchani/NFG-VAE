@@ -56,7 +56,7 @@ def generate_linear_sem(graph : nx.DiGraph,
 
     np.random.seed(seed)
 
-    A = nx.to_numpy_matrix(graph) # adjacency matrix
+    A = nx.to_numpy_array(graph) # adjacency matrix
     m = A.shape[0] # number of nodes
     X = np.zeros((n, m)) # data matrix
     ordered_nodes = list(nx.topological_sort(graph)) # topological order of nodes
@@ -98,39 +98,49 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
                                  n : int, prop : float, seed = 0):
 
     """
-    Generate a linear SEM with noise dependence structure
+    Generate a linear SEM with noise dependence structure on given proportion of edges
+    Noise is generated from a multivariate normal distribution with a generated correlation matrix
 
     Args:
         graph: nx.DiGraph object
         n: number of samples
-        prop: proportion of noise variables that are correlated
+        prop: proportion of edges that have correlated noise structure
         seed: random seed
     """
 
     np.random.seed(seed)
 
-    A = nx.to_numpy_matrix(graph) # adjacency matrix
+    A = nx.to_numpy_array(graph) # adjacency matrix
     m = A.shape[0] # number of nodes
+    e = graph.number_of_edges() # number of edges
     X = np.zeros((n, m)) # data matrix
     ordered_nodes = list(nx.topological_sort(graph)) # topological order of nodes
 
     assert prop >= 0 and prop <= 1, 'Proportion of correlated noise must be between 0 and 1'
 
-    num_corr = int(m * prop) # number of noise that are correlated
-    num_uncorr = m - num_corr # number of noise that are uncorrelated
+    num_corr = int(e * prop) # number of edges that have correlated noise structure
+    num_uncorr = e - num_corr # number of edges that have uncorrelated noise structure
 
-    # generate correlated noise
-    noise_corr = generate_correlation_matrix(num_corr, seed=seed)
-    noise_uncorr = np.eye(num_uncorr)
-    cov = np.block([[noise_corr, np.zeros((num_corr, num_uncorr))],
-                    [np.zeros((num_uncorr, num_corr)), noise_uncorr]])
+    # selected edges
+    selected_edge_indices = np.random.choice(np.arange(e), size = num_corr, replace=False)
+    selected_edges = np.array(graph.edges())[selected_edge_indices]
 
-    # Permuted covariance matrix to get correlated noise
-    perm = np.random.permutation(np.eye(m))
-    cov = perm.T @ cov @ perm
+    # generate covaraince matrix
+    cov = np.eye(m)
+
+    for edge in selected_edges:
+        r = np.random.uniform(low = -1.0, high = 1.0)
+        cov[edge[0], edge[1]] = r
+        cov[edge[1], edge[0]] = r
+
+    cov_prev = cov.copy()
+
+    # make covariance matrix p.s.d and normalize to unit variance
+    cov = adjust_cov_matrix(cov)
+    cov = normalize_cov_matrix(cov)
 
     # generate noise
-    noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n)
+    noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n) 
 
     # generate data
     for i in ordered_nodes:
@@ -161,3 +171,17 @@ def generate_correlation_matrix(size, seed=0):
     correlation_matrix = symmetric_A / np.outer(row_norms, row_norms)
 
     return correlation_matrix
+
+def is_positive_semidefinite(matrix):
+    return np.all(np.linalg.eigvals(matrix) >= 0)
+
+def adjust_cov_matrix(cov):
+    min_eig = np.min(np.real(np.linalg.eigvals(cov)))
+    if min_eig < 0:
+        cov -= 10*min_eig * np.eye(*cov.shape)
+    return cov
+
+def normalize_cov_matrix(cov):
+    std_devs = np.sqrt(np.diag(cov))
+    cov = cov / np.outer(std_devs, std_devs)
+    return cov
