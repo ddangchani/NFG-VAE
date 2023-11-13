@@ -95,7 +95,7 @@ def generate_linear_sem(graph : nx.DiGraph,
 # 3. Generating Linear SEM with correlated noise structure
 
 def generate_linear_sem_correlated(graph : nx.DiGraph,
-                                 n : int, prop : float, seed = 0):
+                                 n : int, prop : float, seed = 0, return_cov = False):
 
     """
     Generate a linear SEM with noise dependence structure on given proportion of edges
@@ -106,6 +106,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         n: number of samples
         prop: proportion of edges that have correlated noise structure
         seed: random seed
+        return_cov: whether to return the covariance matrix (default: False)
     """
 
     np.random.seed(seed)
@@ -148,7 +149,10 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         eta = np.dot(X[:, parents], A[parents, i])
         X[:, i] = eta.flatten() + noise[:, i]
 
-    return X
+    if return_cov:
+        return X, cov, cov_prev
+    else:
+        return X
 
 
 # Generating correlation matrix
