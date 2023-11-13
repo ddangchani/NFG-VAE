@@ -56,7 +56,7 @@ def generate_linear_sem(graph : nx.DiGraph,
 
     np.random.seed(seed)
 
-    A = nx.to_numpy_matrix(graph) # adjacency matrix
+    A = nx.to_numpy_array(graph) # adjacency matrix
     m = A.shape[0] # number of nodes
     X = np.zeros((n, m)) # data matrix
     ordered_nodes = list(nx.topological_sort(graph)) # topological order of nodes
@@ -103,34 +103,47 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     Args:
         graph: nx.DiGraph object
         n: number of samples
-        prop: proportion of noise variables that are correlated
+        prop: proportion of edges that have correlated noise structure
         seed: random seed
     """
 
     np.random.seed(seed)
 
-    A = nx.to_numpy_matrix(graph) # adjacency matrix
+    A = nx.to_numpy_array(graph) # adjacency matrix
     m = A.shape[0] # number of nodes
+    e = graph.number_of_edges() # number of edges
     X = np.zeros((n, m)) # data matrix
     ordered_nodes = list(nx.topological_sort(graph)) # topological order of nodes
 
     assert prop >= 0 and prop <= 1, 'Proportion of correlated noise must be between 0 and 1'
 
-    num_corr = int(m * prop) # number of noise that are correlated
-    num_uncorr = m - num_corr # number of noise that are uncorrelated
+    num_corr = int(e * prop) # number of edges that have correlated noise structure
+    num_uncorr = e - num_corr # number of edges that have uncorrelated noise structure
 
-    # generate correlated noise
-    noise_corr = generate_correlation_matrix(num_corr, seed=seed)
+    # selected edges
+    selected_edge_indices = np.random.choice(np.arange(e), size = num_corr, replace=False)
+    selected_edges = np.array(graph.edges())[selected_edge_indices]
+
+    # generate correlated noise structure
+    noise_corr = generate_correlation_matrix(num_corr, seed = seed)
     noise_uncorr = np.eye(num_uncorr)
-    cov = np.block([[noise_corr, np.zeros((num_corr, num_uncorr))],
-                    [np.zeros((num_uncorr, num_corr)), noise_uncorr]])
 
-    # Permuted covariance matrix to get correlated noise
-    perm = np.random.permutation(np.eye(m))
-    cov = perm.T @ cov @ perm
+    # construct covariance matrix
 
-    # generate noise
-    noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n)
+
+
+    # # generate correlated noise
+    # noise_corr = generate_correlation_matrix(num_corr, seed=seed)
+    # noise_uncorr = np.eye(num_uncorr)
+    # cov = np.block([[noise_corr, np.zeros((num_corr, num_uncorr))],
+    #                 [np.zeros((num_uncorr, num_corr)), noise_uncorr]])
+
+    # # Permuted covariance matrix to get correlated noise
+    # perm = np.random.permutation(np.eye(m))
+    # cov = perm.T @ cov @ perm
+
+    # # generate noise
+    # noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n)
 
     # generate data
     for i in ordered_nodes:
