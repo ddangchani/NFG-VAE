@@ -129,6 +129,11 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     noise_uncorr = np.eye(num_uncorr)
 
     # construct covariance matrix
+    cov = np.block([[noise_corr, np.zeros((num_corr, num_uncorr))],
+                    [np.zeros((num_uncorr, num_corr)), noise_uncorr]])
+    
+    # permuted covariance matrix to get correlated noise
+    
 
 
 
@@ -143,7 +148,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     # cov = perm.T @ cov @ perm
 
     # # generate noise
-    # noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n)
+    # noise = np.random.multivariate_normal(mean=np.zeros(m), cov=cov, size=n) 
 
     # generate data
     for i in ordered_nodes:
