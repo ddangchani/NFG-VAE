@@ -30,3 +30,4 @@
   - [DAG-GNN](https://github.com/fishmoon1234/DAG-GNN)
   - [Flow-VAE](https://github.com/fmu2/flow-VAE)
   - [IAF-VAE](https://github.com/pclucas14/iaf-vae)
+  - [VAE-VPFLOWS](https://github.com/jmtomczak/vae_vpflows)
