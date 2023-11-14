@@ -25,8 +25,8 @@
 
 ## Code Sources
 
-- Code benefit from the following works
-  - [DAG NOTEARS](https://github.com/xunzheng/notears)
-  - [DAG-GNN](https://github.com/fishmoon1234/DAG-GNN)
-  - [Flow-VAE](https://github.com/fmu2/flow-VAE)
-  - [IAF-VAE](https://github.com/pclucas14/iaf-vae)
+Code benefit from the following works
+- [DAG NOTEARS](https://github.com/xunzheng/notears)
+- [DAG-GNN](https://github.com/fishmoon1234/DAG-GNN)
+- [Flow-VAE](https://github.com/fmu2/flow-VAE)
+- [IAF-VAE](https://github.com/pclucas14/iaf-vae)
