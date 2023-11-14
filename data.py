@@ -95,7 +95,7 @@ def generate_linear_sem(graph : nx.DiGraph,
 # 3. Generating Linear SEM with correlated noise structure
 
 def generate_linear_sem_correlated(graph : nx.DiGraph,
-                                 n : int, prop : float, seed = 0, return_cov = False):
+                                 n : int, prop : float, seed = 0, return_cov = False, const = 1.5):
 
     """
     Generate a linear SEM with noise dependence structure on given proportion of edges
@@ -107,6 +107,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         prop: proportion of edges that have correlated noise structure
         seed: random seed
         return_cov: whether to return the covariance matrix (default: False)
+        const: constant to adjust covariance matrix to make it positive semi-definite (default: 1.5)
     """
 
     np.random.seed(seed)
@@ -137,7 +138,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     cov_prev = cov.copy()
 
     # make covariance matrix p.s.d and normalize to unit variance
-    cov = adjust_cov_matrix(cov)
+    cov = adjust_cov_matrix(cov, const)
     cov = normalize_cov_matrix(cov)
 
     # generate noise
@@ -179,10 +180,10 @@ def generate_correlation_matrix(size, seed=0):
 def is_positive_semidefinite(matrix):
     return np.all(np.linalg.eigvals(matrix) >= 0)
 
-def adjust_cov_matrix(cov):
+def adjust_cov_matrix(cov, const=1.5):
     min_eig = np.min(np.real(np.linalg.eigvals(cov)))
     if min_eig < 0:
-        cov -= 10*min_eig * np.eye(*cov.shape)
+        cov -= const * min_eig * np.eye(*cov.shape)
     return cov
 
 def normalize_cov_matrix(cov):
