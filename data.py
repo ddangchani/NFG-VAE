@@ -95,7 +95,7 @@ def generate_linear_sem(graph : nx.DiGraph,
 # 3. Generating Linear SEM with correlated noise structure
 
 def generate_linear_sem_correlated(graph : nx.DiGraph,
-                                 n : int, prop : float, seed = 0):
+                                 n : int, prop : float, seed = 0, return_cov = False, const = 1.5, return_graph = False):
 
     """
     Generate a linear SEM with noise dependence structure on given proportion of edges
@@ -106,6 +106,9 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         n: number of samples
         prop: proportion of edges that have correlated noise structure
         seed: random seed
+        return_cov: whether to return the covariance matrix (default: False)
+        return_graph: whether to return the graph (default: False)
+        const: constant to adjust covariance matrix to make it positive semi-definite (default: 1.5)
     """
 
     np.random.seed(seed)
@@ -125,6 +128,13 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     selected_edge_indices = np.random.choice(np.arange(e), size = num_corr, replace=False)
     selected_edges = np.array(graph.edges())[selected_edge_indices]
 
+    if return_graph:
+        # reverse selected edges
+        selected_edges = np.flip(selected_edges, axis = 1)
+        graph_new = nx.MultiDiGraph(graph)
+        graph_new.add_edges_from(selected_edges)
+
+
     # generate covaraince matrix
     cov = np.eye(m)
 
@@ -136,7 +146,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     cov_prev = cov.copy()
 
     # make covariance matrix p.s.d and normalize to unit variance
-    cov = adjust_cov_matrix(cov)
+    cov = adjust_cov_matrix(cov, const)
     cov = normalize_cov_matrix(cov)
 
     # generate noise
@@ -148,7 +158,15 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
         eta = np.dot(X[:, parents], A[parents, i])
         X[:, i] = eta.flatten() + noise[:, i]
 
-    return X
+    if return_cov and return_graph:
+        return X, cov, cov_prev, graph_new
+    elif return_cov and not return_graph:
+        return X, cov, cov_prev
+    elif not return_cov and return_graph:
+        return X, graph_new
+    else:
+        return X
+    
 
 
 # Generating correlation matrix
@@ -175,10 +193,10 @@ def generate_correlation_matrix(size, seed=0):
 def is_positive_semidefinite(matrix):
     return np.all(np.linalg.eigvals(matrix) >= 0)
 
-def adjust_cov_matrix(cov):
+def adjust_cov_matrix(cov, const=1.5):
     min_eig = np.min(np.real(np.linalg.eigvals(cov)))
     if min_eig < 0:
-        cov -= 10*min_eig * np.eye(*cov.shape)
+        cov -= const * min_eig * np.eye(*cov.shape)
     return cov
 
 def normalize_cov_matrix(cov):
