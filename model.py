@@ -3,8 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as D
 from torch.autograd import Variable
+<<<<<<< Updated upstream
 import torch.nn.utils.weight_norm as wn
 import math
+=======
+from utils import *
+>>>>>>> Stashed changes
 
 
 # What to do?
@@ -17,7 +21,7 @@ class Encoder(nn.Module):
     """
     Encoder class for VAE
     """
-    def __init__(self, args):
+    def __init__(self, args, tol=0.1):
         super(Encoder, self).__init__()
         self.adj_A = nn.Parameter(Variable(torch.from_numpy(args.adj_A).double(), requires_grad=True))
         self.factor = args.factor
@@ -27,8 +31,21 @@ class Encoder(nn.Module):
         self.fc2 = nn.Linear(args.n_hid, args.n_out, bias = True)
         self.dropout_prob = args.do_prob
         self.batch_size = args.batch_size
+<<<<<<< Updated upstream
         self.z = nn.Parameter(torch.tensor(args.tol))
         self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
+=======
+        
+        # for other loss term in training
+        self.z = nn.Parameter(torch.tensor(tol))
+        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
+
+        # For Flow layer
+        self.encoder_mean = nn.Linear(args.n_out, args.z1_size)
+        self.encoder_logvar = nn.Linear(args.n_out, args.z1_size)
+
+
+>>>>>>> Stashed changes
         self.init_weights()
 
     def init_weights(self):
@@ -47,8 +64,12 @@ class Encoder(nn.Module):
         # to amplify the value of A and accelerate convergence. (why?)
         adj_A1 = torch.sinh(3.*self.adj_A)
 
+<<<<<<< Updated upstream
         # adj_Aforz = $I-A^T$
         adj_Aforz = (torch.eye(adj_A1.shape[0]).double() - (adj_A1.transpose(0,1)))
+=======
+        adj_Aforz = preprocess_adj_new(adj_A1) # adj_Aforz = $I-A^T$
+>>>>>>> Stashed changes
 
         adj_A = torch.eye(adj_A1.size()[0]).double()
         H1 = F.relu((self.fc1(inputs)))
@@ -79,11 +100,15 @@ class FlowLayer(nn.Module):
     
     def up(self, input):
         
+<<<<<<< Updated upstream
         return ...
 
     def down(self, input, sample=False):
             
         return ...
+=======
+        return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
+>>>>>>> Stashed changes
 
 
 # 3. VAE Decoder class
@@ -117,9 +142,14 @@ class Decoder(nn.Module):
     def forward(self, input_z, origin_A, Wa):
         # Wa : Encoder에서 학습한 parameter
         
+<<<<<<< Updated upstream
         # adj_A_new_inv = $(I-A^T)^{-1}$
         adj_A_new_inv = torch.inverse(torch.eye(origin_A.shape[0]).double() 
                                       - origin_A.transpose(0,1))
+=======
+        # adj_A_inv = $(I-A^T)^{-1}$
+        adj_A_inv = preprocess_adj_new1(origin_A)
+>>>>>>> Stashed changes
 
         mat_z = torch.matmul(adj_A_new_inv, input_z + Wa) - Wa
 
@@ -128,4 +158,52 @@ class Decoder(nn.Module):
 
         return mat_z, out
 
+<<<<<<< Updated upstream
         
+=======
+        return mat_z, out, x_mean, x_logvar
+
+
+class VAE(nn.Module):
+    def __init__(self, args):
+        super(VAE, self).__init__()
+
+        self.args = args
+        self.encoder = Encoder(args)
+        self.decoder = Decoder(args)
+        self.flow = FlowLayer(args)
+        self.encoder_L = nn.Linear(args.n_out, args.z1_size**2)
+        self.softmax = nn.Softmax()
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight.data)
+
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_() # standard deviation from log variance
+        if self.args.cuda: # generate random noise epsilon for reparameterization trick
+            eps = torch.cuda.FloatTensor(std.size()).normal_()
+        else:
+            eps = torch.FloatTensor(std.size()).normal_()
+
+        eps = Variable(eps)
+        return eps.mul(std).add_(mu) # return y sample
+
+    def forward(self, input):
+        z = {}
+        # z ~ q(z|x) : encoder
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix
+
+        # reparemeterization trick
+        z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
+
+        # Flow layer
+        L = self.encoder_L(logits)
+        z['1'] = self.flow(L, z['0']) # z1 : after Flow
+
+        # z ~ p(x|z) : decoder
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa) 
+
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
+>>>>>>> Stashed changes
