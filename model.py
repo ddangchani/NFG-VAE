@@ -163,7 +163,7 @@ class VAE(nn.Module):
         z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa = self.encoder(input)
 
         # reparemeterization trick
-        z['0'] = self.reparameterize(mu, logvar) # z0 : before Flow
+        z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
 
         # Flow layer
         L = self.encoder_L(logits)
