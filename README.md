@@ -17,6 +17,7 @@
 
 - `References/` : Codes used for this project
 - `Tex/` : Latex files for report
+- `results/` : Results of experiments
 - `model.py` : VAE, NF code
 - `train.py` : main code for run model training
 - `data.py` : ~~code for generating data~~ (clear!)
@@ -29,3 +30,4 @@
   - [DAG-GNN](https://github.com/fishmoon1234/DAG-GNN)
   - [Flow-VAE](https://github.com/fmu2/flow-VAE)
   - [IAF-VAE](https://github.com/pclucas14/iaf-vae)
+  - [VAE-VPFLOWS](https://github.com/jmtomczak/vae_vpflows)
