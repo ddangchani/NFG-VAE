@@ -4,6 +4,7 @@ import pickle
 import os
 import argparse
 
+
 import torch
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
@@ -15,6 +16,10 @@ from model import *
 from data import *
 from loss import calculate_reconstruction_loss, calculate_kl_loss
 
+
+from __future__ import print_function
+
+from utils.distributions import log_Normal_diag, log_Normal_standard, log_Bernoulli
 
 # 1. Arguments(argparse)
 
@@ -83,9 +88,7 @@ parser.add_argument('--lr-decay', type=int, default=200,
 parser.add_argument('--gamma', type=float, default= 1.0,
                     help='LR decay factor.')
 
-
 args = parser.parse_args()
-print(args.dependence_type)
 
 # Device configuration (GPU or MPS or CPU)
 
@@ -112,8 +115,8 @@ if not os.path.exists(folder):
 
 # Save the arguments
 meta_file = os.path.join(folder, 'meta.pkl')
-encoder_file = os.path.join(folder, 'encoder.pt')
-decoder_file = os.path.join(folder, 'decoder.pt')
+vae_indep_file = os.path.join(folder, 'vae_indep.pt')
+vae_dep_file = os.path.join(folder, 'vae_dep.pt')
 
 log_file = os.path.join(folder, 'log.txt')
 log = open(log_file, 'w')
@@ -134,9 +137,6 @@ else:
 # save X to file
 data_file = os.path.join(folder, 'data.pkl')
 pickle.dump(X, open(data_file, 'wb'))
-
-
-# 2.3. To Pytorch Tensor(VAE)
 
 feat_train = torch.FloatTensor(X).to(device)
 feat_valid = torch.FloatTensor(X).to(device)
@@ -213,60 +213,144 @@ def update_optimizer(optimizer, original_lr, c_A):
 
 # 4. Training Loop (epoch, batch, loss, optimizer, etc.)
 
-def train_indep(epoch, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer):
-    """
-    Training loop for independent noise case
-    """
+
+def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer):
+    # set loss to 0
+    train_loss = 0
+    train_re = 0
+    train_kl = 0
     t = time.time()
     nll_train = []
     kl_train = []
     mse_train = []
-    shd_train = []
-
+    shd_trian = []
+    
+    # set model in training mode
     vae.train()
-    scheduler.step()
 
-    # update optimizer
-    optimizer, lr = update_optimizer(optimizer, args.lr, c_A)
+    z = {}
 
-    for batch_idx, (data, relations) in enumerate(train_data_loader):
+    # start training
+    if args.warmup == 0:
+        beta = 1.
+    else:
+        beta = 1.* (epoch-1) / args.warmup
+        if beta > 1.:
+            beta = 1.
+    print('beta: {}'.format(beta))
 
-        data, relations = data.to(device), relations.to(device)
+    for batch_idx, (data, relations) in enumerate(train_loader):
+
+        if args.cuda:
+            data, relations = data.cuda(), relations.cuda()
         data, relations = Variable(data).double(), Variable(relations).double()
 
-        # Reshape relations
+        # reshape data
         relations = relations.unsqueeze(2)
 
         optimizer.zero_grad()
 
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix -> 왜 필요한가?
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_q = model.forward(data)
+        # 만약 마지막에 에러 -> z_q를 z['0'], z['1']로
+        edges = logits
+
+        """in DAG-GNN
+        enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
+        edges = logits
+        dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
+        """
+        
         # Forward VAE
         z = {}
-        z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'] = vae(data)
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_q = vae(data)
+        # 만약 마지막에 에러 -> z_q를 z['0'], z['1']로
 
-        if torch.sum(out != out):
+        if torch.sum(output != output):
             print('nan error \n')
 
-        # ELBO
+        # ELBO: 어떻게?
         loss_nll = calculate_reconstruction_loss
+        loss_kl = calculate_kl_loss
+
+        loss = loss_nll + loss_kl
+
+        # 여기서부턴 DAG-GNN의 추가 loss: 의미는 잘 모름. 일단 추가 -> 나중에 삭제
+        # =======================
+        # add A loss
+        one_adj_A = origin_A # torch.mean(adj_A_tilt_decoder, dim =0)
+        sparse_loss = args.tau_A * torch.sum(torch.abs(one_adj_A))
+
+        # other loss term
+        if args.use_A_connect_loss:
+            connect_gap = A_connect_loss(one_adj_A, args.graph_threshold, z_gap)
+            loss += lambda_A * connect_gap + 0.5 * c_A * connect_gap * connect_gap
+
+        if args.use_A_positiver_loss:
+            positive_gap = A_positive_loss(one_adj_A, z_positive)
+            loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
+
+        # compute h(A)
+        h_A = _h_A(origin_A, args.data_variable_size)
+        loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A) + sparse_loss #+  0.01 * torch.sum(variance * variance)
+
+        # DAG-GNN 참조: backward 및 추가 metrics, 마찬가지로 후에 수정
+
+        loss.backward()
+        loss = optimizer.step()
+
+        myA.data = stau(myA.data, args.tau_A*lr)
+
+        if torch.sum(origin_A != origin_A):
+            print('nan error\n')
+
+        # compute metrics
+        graph = origin_A.data.clone().numpy()
+        graph[np.abs(graph) < args.graph_threshold] = 0
+
+        fdr, tpr, fpr, shd, nnz = count_accuracy(ground_truth_G, nx.DiGraph(graph))
+
+        mse_train.append(F.mse_loss(output, data).item())
+        nll_train.append(loss_nll.item())
+        kl_train.append(loss_kl.item())
+        shd_train.append(shd)
+
+    print(h_A.item())
+    nll_val = []
+    acc_val = []
+    kl_val = []
+    mse_val = []
+
+    print('Epoch: {:04d}'.format(epoch),
+          'nll_train: {:.10f}'.format(np.mean(nll_train)),
+          'kl_train: {:.10f}'.format(np.mean(kl_train)),
+          'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
+          'mse_train: {:.10f}'.format(np.mean(mse_train)),
+          'shd_trian: {:.10f}'.format(np.mean(shd_train)),
+          'time: {:.4f}s'.format(time.time() - t))
+    if args.save_folder and np.mean(nll_val) < best_val_loss:
+        torch.save(vae.state_dict(), vae_indep_file)
+        print('Best model so far, saving...')
+        print('Epoch: {:04d}'.format(epoch),
+              'nll_train: {:.10f}'.format(np.mean(nll_train)),
+              'kl_train: {:.10f}'.format(np.mean(kl_train)),
+              'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
+              'mse_train: {:.10f}'.format(np.mean(mse_train)),
+              'shd_trian: {:.10f}'.format(np.mean(shd_train)),
+              'time: {:.4f}s'.format(time.time() - t), file=log)
+        log.flush()
+
+    if 'graph' not in vars():
+        print('error on assign')
+
+
+    return np.mean(np.mean(kl_train)  + np.mean(nll_train)), np.mean(nll_train), np.mean(mse_train), graph, origin_A
+
         
-
-    
-
-    
-
-def train_dep(epoch, best_val_loss, ground_truth_G,)
-    """
-    Training Loop for dependent noise case
-    """
 
 
 
 # 5. Save Model (checkpoint, etc.)
-
-
-
-
-
 
 
 #===============
@@ -286,7 +370,7 @@ if args.dependence_type == 0:
     c_A = args.c_A
     lambda_A = args.lambda_A
 else:
-    c_A = 0.0
+    c_A = 0.0 # 훈련 모델 수정 필요 > c=0이면 optimizer update 오류?
     lambda_A = 0.0
 
 h_A_new = torch.tensor(1.)

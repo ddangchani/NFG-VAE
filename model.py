@@ -1,6 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.distributions as D
+from torch.autograd import Variable
+import torch.nn.utils.weight_norm as wn
+import math
+from utils import *
 import numpy as np
 
 from torch.autograd import Variable
@@ -38,7 +43,7 @@ class Encoder(nn.Module):
     """
     Encoder class for VAE
     """
-    def __init__(self, args):
+    def __init__(self, args, tol=0.1):
         super(Encoder, self).__init__()
 
         self.args = args
@@ -48,11 +53,17 @@ class Encoder(nn.Module):
         self.fc2 = nn.Linear(args.n_hid, args.n_out, bias=True)
         self.batch_size = args.batch_size
 
+        self.z = nn.Parameter(torch.tensor(args.tol))
+        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
+
+        # for other loss
+        self.z = nn.Parameter(torch.tensor(tol))
+        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
+
 
         # For Flow layer
         self.encoder_mean = nn.Linear(args.n_out, args.z_size)
         self.encoder_logvar = nn.Linear(args.n_out, args.z_size)
-
 
         self.init_weights()
 
@@ -71,7 +82,9 @@ class Encoder(nn.Module):
 
         adj_A1 = torch.sinh(3.*self.adj_A) # amplify A
 
-        adj_Aforz = (torch.eye(adj_A1.shape[0]).double() - (adj_A1.transpose(0,1))) # adj_Aforz = $I-A^T$
+        # adj_Aforz = $I-A^T$
+        adj_Aforz = (torch.eye(adj_A1.shape[0]).double() - (adj_A1.transpose(0,1)))
+
 
         adj_A = torch.eye(adj_A1.size()[0]).double()
         h0 = F.relu((self.fc1(inputs))) # first hidden layer
@@ -82,7 +95,8 @@ class Encoder(nn.Module):
         z_q_mean = self.encoder_mean(logits)
         z_q_logvar = self.encoder_logvar(logits)
         
-        return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.Wa
+        return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
+
 
 
 
@@ -116,11 +130,11 @@ class Decoder(nn.Module):
     def forward(self, input_z, origin_A, Wa):
         # Wa : Encoder에서 학습한 parameter
         
-        # adj_A_inv = $(I-A^T)^{-1}$
-        adj_A_inv = torch.inverse(torch.eye(origin_A.shape[0]).double() 
+        # adj_A_new_inv = $(I-A^T)^{-1}$
+        adj_A_new_inv = torch.inverse(torch.eye(origin_A.shape[0]).double() 
                                       - origin_A.transpose(0,1))
 
-        mat_z = torch.matmul(adj_A_inv, input_z + Wa) - Wa
+        mat_z = torch.matmul(adj_A_new_inv, input_z + Wa) - Wa
 
         H3 = F.relu((self.out_fc1(mat_z)))
         out = self.out_fc2(H3)
@@ -140,7 +154,7 @@ class VAE(nn.Module):
         self.encoder = Encoder(args)
         self.decoder = Decoder(args)
         self.flow = FlowLayer(args)
-        self.encoder_L = nn.Linear(args.n_out, args.z_size**2)
+        self.encoder_L = nn.Linear(args.n_out, args.z1_size**2)
         self.softmax = nn.Softmax()
 
         for m in self.modules():
@@ -160,7 +174,9 @@ class VAE(nn.Module):
     def forward(self, input):
         z = {}
         # z ~ q(z|x) : encoder
-        z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa = self.encoder(input)
+
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix
 
         # reparemeterization trick
         z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
@@ -170,6 +186,6 @@ class VAE(nn.Module):
         z['1'] = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
-        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], adj_A1, Wa)
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
 
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
