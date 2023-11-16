@@ -13,6 +13,7 @@ import numpy as np
 from utils import *
 from model import *
 from data import *
+from loss import calculate_reconstruction_loss, calculate_kl_loss
 
 
 # 1. Arguments(argparse)
@@ -55,8 +56,8 @@ parser.add_argument('--use_A_connect_loss',  type = int, default= 0,
                     help='flag to use A connect loss')
 parser.add_argument('--use_A_positiver_loss', type = int, default = 0,
                     help = 'flag to enforce A must have positive values')
-parser.add_argument('--no-cuda', action='store_true', default=True,
-                    help='Disables CUDA training.')
+parser.add_argument('--cuda', type=int, default=0,
+                    help='use cuda or not')
 parser.add_argument('--seed', type=int, default=42, 
                     help='Random seed.')
 parser.add_argument('--epochs', type=int, default= 300,
@@ -166,22 +167,12 @@ rel_send = Variable(rel_send)
 # Adjacency Matrix
 adj_A = np.zeros([args.node_size, args.node_size])
 
-# 3.1. Encoder and Decoder
-encoder = Encoder().to(device)
-decoder = Decoder().to(device)
+# 3.1. Load VAE
 
-# 3.2. Flow Layer
-flow = FlowLayer().to(device)
+vae = VAE(args=args)
 
 # 3.3. Optimizer
-if args.optimizer == 'Adam':
-    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()) + list(flow.parameters()), lr=args.lr)
-elif args.optimizer == 'SGD':
-    optimizer = torch.optim.SGD(list(encoder.parameters()) + list(decoder.parameters()) + list(flow.parameters()), lr=args.lr, momentum=0.9, nesterov=True)
-elif args.optimizer == 'LBFGS':
-    optimizer = torch.optim.LBFGS(list(encoder.parameters()) + list(decoder.parameters()) + list(flow.parameters()), lr=args.lr, max_iter=20, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
-else:
-    raise ValueError('Optimizer not recognized.')
+optimizer = torch.optim.Adam(list(vae.parameters()), lr=args.lr)
 
 # 3.4. Learning Rate Scheduler
 scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lr_decay, gamma=args.gamma)
@@ -199,7 +190,10 @@ def stau(w, tau):
     return torch.sign(w)*w1
 
 def update_optimizer(optimizer, original_lr, c_A):
-    '''related LR to c_A, whenever c_A gets big, reduce LR proportionally'''
+    '''
+    FOR INDEPENDENT NOISE CASE (Augmented Lagrangian Method)
+    related LR to c_A, whenever c_A gets big, reduce LR proportionally
+    '''
     MAX_LR = 1e-2
     MIN_LR = 1e-4
 
@@ -219,12 +213,83 @@ def update_optimizer(optimizer, original_lr, c_A):
 
 # 4. Training Loop (epoch, batch, loss, optimizer, etc.)
 
-def train():
+def train_indep(epoch, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer):
+    """
+    Training loop for independent noise case
+    """
+    t = time.time()
+    nll_train = []
+    kl_train = []
+    mse_train = []
+    shd_train = []
 
-    return ...
+    vae.train()
+    scheduler.step()
 
+    # update optimizer
+    optimizer, lr = update_optimizer(optimizer, args.lr, c_A)
 
+    for batch_idx, (data, relations) in enumerate(train_data_loader):
+
+        data, relations = data.to(device), relations.to(device)
+        data, relations = Variable(data).double(), Variable(relations).double()
+
+        # Reshape relations
+        relations = relations.unsqueeze(2)
+
+        optimizer.zero_grad()
+
+        # Forward VAE
+        z = {}
+        z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'] = vae(data)
+
+        if torch.sum(out != out):
+            print('nan error \n')
+
+        # ELBO
+        loss_nll = calculate_reconstruction_loss(out, data, x_logvar)
+        
+
+    
+
+    
+
+def train_dep(epoch, best_val_loss, ground_truth_G,)
+    """
+    Training Loop for dependent noise case
+    """
 
 
 
 # 5. Save Model (checkpoint, etc.)
+
+
+
+
+
+
+
+#===============
+# MAIN
+#===============
+
+t_total = time.time()
+best_ELBO_loss = np.inf
+best_NLL_loss = np.inf
+best_MSE_loss = np.inf
+best_epoch = 0
+best_ELBO_graph = []
+best_NLL_graph = []
+best_MSE_graph = []
+
+if args.dependence_type == 0:
+    c_A = args.c_A
+    lambda_A = args.lambda_A
+else:
+    c_A = 0.0
+    lambda_A = 0.0
+
+h_A_new = torch.tensor(1.)
+h_tol = args.h_tol
+k_max_iter = int(args.k_max_iter)
+h_A_old = np.inf
