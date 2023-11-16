@@ -247,7 +247,7 @@ def train_indep(epoch, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer):
             print('nan error \n')
 
         # ELBO
-        loss_nll = calculate_reconstruction_loss(out, data, x_logvar)
+        loss_nll = calculate_reconstruction_loss
         
 
     
