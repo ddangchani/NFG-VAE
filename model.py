@@ -4,8 +4,12 @@ import torch.nn.functional as F
 import torch.distributions as D
 from torch.autograd import Variable
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import torch.nn.utils.weight_norm as wn
 import math
+=======
+from utils import *
+>>>>>>> Stashed changes
 =======
 from utils import *
 >>>>>>> Stashed changes
@@ -32,11 +36,16 @@ class Encoder(nn.Module):
         self.dropout_prob = args.do_prob
         self.batch_size = args.batch_size
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         self.z = nn.Parameter(torch.tensor(args.tol))
         self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
 =======
         
         # for other loss term in training
+=======
+
+        # for other loss
+>>>>>>> Stashed changes
         self.z = nn.Parameter(torch.tensor(tol))
         self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
 
@@ -101,11 +110,15 @@ class FlowLayer(nn.Module):
     def up(self, input):
         
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         return ...
 
     def down(self, input, sample=False):
             
         return ...
+=======
+        return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
+>>>>>>> Stashed changes
 =======
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
 >>>>>>> Stashed changes
@@ -192,8 +205,12 @@ class VAE(nn.Module):
     def forward(self, input):
         z = {}
         # z ~ q(z|x) : encoder
+<<<<<<< Updated upstream
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
         # myA = encoder.adj_A, adj_A_tilt is identity matrix
+=======
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa  = self.encoder(input)
+>>>>>>> Stashed changes
 
         # reparemeterization trick
         z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
@@ -203,7 +220,13 @@ class VAE(nn.Module):
         z['1'] = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
+<<<<<<< Updated upstream
         mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa) 
+
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
+>>>>>>> Stashed changes
+=======
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
 
         return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
 >>>>>>> Stashed changes
