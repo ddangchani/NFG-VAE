@@ -20,7 +20,7 @@ class FlowLayer(nn.Module):
         :return: z_new = L * z
         """
         # transform L to lower triangular matrix
-        L_matrix = L.view( -1, self.args.z_size, self.args.z_size ) # resize to get B x L x L
+        L_matrix = L.view(-1, self.args.z_size, self.args.z_size) # resize to get B x L x L
         LTmask = torch.tril(torch.ones(self.args.z_size, self.args.z_size), k=-1) # lower-triangular mask matrix
         I = Variable(torch.eye(self.args.z_size, self.args.z_size).expand(L_matrix.size(0), self.args.z_size, self.args.z_size))
         if self.args.cuda:
@@ -170,6 +170,6 @@ class VAE(nn.Module):
         z['1'] = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
-        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], adj_A, Wa)
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], adj_A1, Wa)
 
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
