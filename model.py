@@ -170,6 +170,6 @@ class VAE(nn.Module):
         z['1'] = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
-        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], adj_A, Wa)
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], adj_A1, Wa)
 
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, adj_A_tilt, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
