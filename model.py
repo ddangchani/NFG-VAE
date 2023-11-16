@@ -20,14 +20,14 @@ class FlowLayer(nn.Module):
         :return: z_new = L * z
         """
         # transform L to lower triangular matrix
-        L_matrix = L.view( -1, self.args.z1_size, self.args.z1_size ) # resize to get B x L x L
-        LTmask = torch.tril(torch.ones(self.args.z1_size, self.args.z1_size), k=-1) # lower-triangular mask matrix
-        I = Variable(torch.eye(self.args.z1_size, self.args.z1_size).expand(L_matrix.size(0), self.args.z1_size, self.args.z1_size))
+        L_matrix = L.view(-1, self.args.z_size, self.args.z_size) # resize to get B x L x L
+        LTmask = torch.tril(torch.ones(self.args.z_size, self.args.z_size), k=-1) # lower-triangular mask matrix
+        I = Variable(torch.eye(self.args.z_size, self.args.z_size).expand(L_matrix.size(0), self.args.z_size, self.args.z_size))
         if self.args.cuda:
             LTmask = LTmask.cuda()
             I = I.cuda()
         LTmask = Variable(LTmask)
-        LTmask = LTmask.unsqueeze(0).expand(L_matrix.size(0), self.args.z1_size, self.args.z1_size)
+        LTmask = LTmask.unsqueeze(0).expand(L_matrix.size(0), self.args.z_size, self.args.z_size)
         LT = torch.mul(L_matrix, LTmask) + I # Lower triangular batches
 
         z_new = torch.bmm(LT, z.unsqueeze(2)).squeeze(2)
@@ -50,8 +50,8 @@ class Encoder(nn.Module):
 
 
         # For Flow layer
-        self.encoder_mean = nn.Linear(args.n_out, args.z1_size)
-        self.encoder_logvar = nn.Linear(args.n_out, args.z1_size)
+        self.encoder_mean = nn.Linear(args.n_out, args.z_size)
+        self.encoder_logvar = nn.Linear(args.n_out, args.z_size)
 
 
         self.init_weights()
@@ -140,7 +140,7 @@ class VAE(nn.Module):
         self.encoder = Encoder(args)
         self.decoder = Decoder(args)
         self.flow = FlowLayer(args)
-        self.encoder_L = nn.Linear(args.n_out, args.z1_size**2)
+        self.encoder_L = nn.Linear(args.n_out, args.z_size**2)
         self.softmax = nn.Softmax()
 
         for m in self.modules():

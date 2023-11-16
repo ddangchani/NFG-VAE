@@ -189,7 +189,7 @@ scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lr_decay, gamma=args.g
 # compute constraint h(A) value
 def _h_A(A, m):
     expm_A = matrix_poly(A*A, m)
-    h_A = torch.trace(expm_A) - mf
+    h_A = torch.trace(expm_A) - m
     return h_A
 
 prox_plus = torch.nn.Threshold(0.,0.)
