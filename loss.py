@@ -15,11 +15,24 @@ def calculate_reconstruction_loss(preds, target, variance):
 
 # 2. Calculate KL Divergence Loss
 
-def calculate_kl_loss(preds, zsize):
-    predsnew = preds.squeeze(1)
-    mu = predsnew[:,0:zsize]
-    log_sigma = predsnew[:,zsize:2*zsize]
-    kl_div = torch.exp(2*log_sigma) - 2*log_sigma + mu * mu
-    kl_sum = kl_div.sum()
+def calculate_kl_loss(z_0, z_1, z_q_mean, z_q_logvar):
+    log_p_z = log_Normal_standard(z_1, dim=1)
+    log_q_z = log_Normal_diag(z_0, z_q_mean, z_q_logvar, dim=1)
+    kl_loss = -(log_p_z - log_q_z)
 
-    return (kl_sum / (preds.size(0)) - zsize)*0.5
+    return kl_loss.sum() / (z_0.size(0))
+
+
+def log_Normal_diag(x, mean, log_var, average=False, dim=None):
+    log_normal = -0.5 * ( log_var + torch.pow( x - mean, 2 ) * torch.pow( torch.exp( log_var ), -1) )
+    if average:
+        return torch.mean( log_normal, dim )
+    else:
+        return torch.sum( log_normal, dim )
+
+def log_Normal_standard(x, average=False, dim=None):
+    log_normal = -0.5 * torch.pow( x , 2 )
+    if average:
+        return torch.mean( log_normal, dim )
+    else:
+        return torch.sum( log_normal, dim )
