@@ -83,7 +83,7 @@ class Encoder(nn.Module):
 
         adj_A = torch.eye(adj_A1.size()[0]).float()
         h0 = F.relu((self.fc1(inputs.float()))) # first hidden layer
-        h1 = (self.fc2(h0.view(self.batch_size, -1, self.args.encoder_hidden))) # second hidden layer
+        h1 = (self.fc2(h0)) # second hidden layer
         logits = torch.matmul(adj_Aforz, h1 + self.Wa) - self.Wa
 
         # For Flow layer
