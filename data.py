@@ -39,7 +39,7 @@ def generate_random_dag(d, degree, w_range = (0.5, 2.0), seed = 0):
 
 def generate_linear_sem(graph : nx.DiGraph, 
                         n : int, dist = 'normal', linear_type = 'linear', 
-                        loc = 0.0, scale = 1.0, seed = 0):
+                        loc = 0.0, scale = 1.0, seed = 0, x_dims : int = 1):
 
     """
     Generate a linear SEM with some parameters
@@ -58,44 +58,47 @@ def generate_linear_sem(graph : nx.DiGraph,
 
     A = nx.to_numpy_array(graph) # adjacency matrix
     m = A.shape[0] # number of nodes
-    X = np.zeros((n, m)) # data matrix
+    X = np.zeros([n, m, x_dims]) # data matrix
     ordered_nodes = list(nx.topological_sort(graph)) # topological order of nodes
-
-    # generate noise
-    if dist == 'normal':
-        noise = np.random.normal(loc = loc, scale = scale, size = (n, m))
-    elif dist == 'uniform':
-        noise = np.random.uniform(low = loc-scale, high = loc+scale, size = (n, m))
-    elif dist == 'exponential':
-        noise = np.random.exponential(scale = scale, size = (n, m))
-    elif dist == 'laplace':
-        noise = np.random.laplace(loc = loc, scale = scale, size = (n, m))
-    elif dist == 'gumbel':
-        noise = np.random.gumbel(loc = loc, scale = scale, size = (n, m))
-    else:
-        raise ValueError('Invalid distribution')
 
     # generate data
     for i in ordered_nodes:
         parents = list(graph.predecessors(i))
         if linear_type == 'linear':
-            eta = np.dot(X[:, parents], A[parents, i])
+            eta = np.dot(X[:, parents, 0], A[parents, i])
         elif linear_type == 'trigonometric':
-            eta = np.sin(np.dot(X[:, parents], A[parents, i]))
+            eta = np.sin(np.dot(X[:, parents, 0], A[parents, i]))
         elif linear_type == 'quadratic':
-            eta = np.dot(X[:, parents], A[parents, i]) ** 2
+            eta = np.dot(X[:, parents, 0], A[parents, i]) ** 2
         else:
             raise ValueError('Unknown linear type')
 
-        X[:, i] = eta.flatten() + noise[:, i]
+        # generate noise
+        if dist == 'normal':
+            noise = np.random.normal(loc = loc, scale = scale, size = n)
+        elif dist == 'uniform':
+            noise = np.random.uniform(low = loc-scale, high = loc+scale, size = n)
+        elif dist == 'exponential':
+            noise = np.random.exponential(scale = scale, size = n)
+        elif dist == 'laplace':
+            noise = np.random.laplace(loc = loc, scale = scale, size = n)
+        elif dist == 'gumbel':
+            noise = np.random.gumbel(loc = loc, scale = scale, size = n)
+        else:
+            raise ValueError('Invalid distribution')
 
+        X[:, i, 0] = eta.flatten() + noise
+    if x_dims > 1 :
+        for i in range(x_dims-1):
+            X[:, :, i+1] = np.random.normal(scale=scale, size=1)*X[:, :, 0] + np.random.normal(scale=scale, size=1) + np.random.normal(scale=scale, size=(n, m))
+        X[:, :, 0] = np.random.normal(scale=scale, size=1) * X[:, :, 0] + np.random.normal(scale=scale, size=1) + np.random.normal(scale=scale, size=(n, m))
     return X
 
 
 # 3. Generating Linear SEM with correlated noise structure
 
 def generate_linear_sem_correlated(graph : nx.DiGraph,
-                                 n : int, prop : float, seed = 0, return_cov = False, const = 1.5, return_graph = False):
+                                 n : int, prop : float, seed = 0, return_cov = False, const = 1.5, return_graph = False, x_dims : int = 1):
 
     """
     Generate a linear SEM with noise dependence structure on given proportion of edges
@@ -116,7 +119,7 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     A = nx.to_numpy_array(graph) # adjacency matrix
     m = A.shape[0] # number of nodes
     e = graph.number_of_edges() # number of edges
-    X = np.zeros((n, m)) # data matrix
+    X = np.zeros([n, m, x_dims]) # data matrix
     ordered_nodes = list(nx.topological_sort(graph)) # topological order of nodes
 
     assert prop >= 0 and prop <= 1, 'Proportion of correlated noise must be between 0 and 1'
@@ -155,8 +158,8 @@ def generate_linear_sem_correlated(graph : nx.DiGraph,
     # generate data
     for i in ordered_nodes:
         parents = list(graph.predecessors(i))
-        eta = np.dot(X[:, parents], A[parents, i])
-        X[:, i] = eta.flatten() + noise[:, i]
+        eta = np.dot(X[:, parents, 0], A[parents, i])
+        X[:, i, 0] = eta.flatten() + noise[:, i]
 
     if return_cov and return_graph:
         return X, cov, cov_prev, graph_new

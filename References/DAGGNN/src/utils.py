@@ -1,27 +1,25 @@
 import numpy as np
 import torch
+from torch.utils.data.dataset import TensorDataset
+from torch.utils.data import DataLoader
+import torch.nn.functional as F
 import torch.nn as nn
-import math
-import pickle
-import re
-import glob
-import os
-import time
-import pandas as pd
-import scipy.linalg as la
+from torch.autograd import Variable
+import numpy as np
+import scipy.linalg as slin
 import scipy.sparse as sp
 import networkx as nx
-# torch
-from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.dataset import TensorDataset
-from torch.nn import Parameter
-from torch.optim import Adam, SGD
-from torch.nn import functional as F
-from torch.nn import init
-from torch.autograd import Variable
+import pandas as pd
+from pandas import ExcelWriter
+from pandas import ExcelFile
+import os
+import glob
+import re
+import pickle
+import math
+from torch.optim.adam import Adam
 
-
-# DAG Generator
+# data generating functions
 
 def simulate_random_dag(d: int,
                         degree: float,
@@ -64,63 +62,58 @@ def simulate_random_dag(d: int,
     G = nx.DiGraph(W)
     return G
 
-def generate_linearsem(graph : nx.DiGraph, n : int, dist : str, linear_type : str, params : list, seed : int = 0):
-    """
-    Generate data from a linear SEM and given graph
-    :param graph: graph
-    :param n: number of samples
-    :param dist: distribution of the noise (e.g. normal)
-    :param linear_type: type of function (linear, trigonometric, quadratic)
-    :param params: parameters of the SEM
-    :param seed: random seed
+
+def simulate_sem(G: nx.DiGraph,
+                 n: int, x_dims: int,
+                 sem_type: str,
+                 linear_type: str,
+                 noise_scale: float = 1.0) -> np.ndarray:
+    """Simulate samples from SEM with specified type of noise.
+
+    Args:
+        G: weigthed DAG
+        n: number of samples
+        sem_type: {linear-gauss,linear-exp,linear-gumbel}
+        noise_scale: scale parameter of noise distribution in linear SEM
 
     Returns:
-        X: np.array of shape (n, m) where m is the number of nodes
+        X: [n,d] sample matrix
     """
-    np.random.seed(seed)
-
-    A = nx.to_numpy_array(graph) # adjacency matrix
-    m = A.shape[0] # number of nodes
-    X = np.zeros((n, m)) # data matrix
-    ordered_vertices = list(nx.topological_sort(graph)) # topological order of the graph
-
-    assert len(ordered_vertices) == m
-
-    # generate noise
-    if dist == 'normal':
-        noise = np.random.normal(0, params[0], size=(n, m))
-
-    elif dist == 'uniform':
-        noise = np.random.uniform(low= - params[0], high= params[0], size=(n, m))
-
-    elif dist == 'exponential':
-        noise = np.random.exponential(scale=params[0], size=(n, m))
-
-    elif dist == 'gamma':
-        noise = np.random.gamma(shape=params[0], scale=params[1], size=(n, m))
-
-    elif dist == 'beta':
-        noise = np.random.beta(a=params[0], b=params[1], size=(n, m))
-
-    else:
-        raise ValueError('Unknown distribution')
-
-    # generate data
-
-    for i in ordered_vertices:
-        parents = list(G.predecessors(i))
+    W = nx.to_numpy_array(G)
+    d = W.shape[0]
+    X = np.zeros([n, d, x_dims])
+    ordered_vertices = list(nx.topological_sort(G))
+    assert len(ordered_vertices) == d
+    for j in ordered_vertices:
+        parents = list(G.predecessors(j))
         if linear_type == 'linear':
-            eta = np.dot(X[:, parents], A[parents, i])
-        elif linear_type == 'trigonometric':
-            eta = np.sin(np.dot(X[:, parents], A[parents, i]))
-        elif linear_type == 'quadratic':
-            eta = np.dot(X[:, parents], A[parents, i]) ** 2
+            eta = X[:, parents, 0].dot(W[parents, j])
+        elif linear_type == 'nonlinear_1':
+            eta = np.cos(X[:, parents, 0] + 1).dot(W[parents, j])
+        elif linear_type == 'nonlinear_2':
+            eta = (X[:, parents, 0]+0.5).dot(W[parents, j])
         else:
-            raise ValueError('Unknown linear type')
+            raise ValueError('unknown linear data type')
 
-        X[:, i] = eta + noise[:, i]
-
+        if sem_type == 'linear-gauss':
+            if linear_type == 'linear':
+                X[:, j, 0] = eta + np.random.normal(scale=noise_scale, size=n)
+            elif linear_type == 'nonlinear_1':
+                X[:, j, 0] = eta + np.random.normal(scale=noise_scale, size=n)
+            elif linear_type == 'nonlinear_2':
+                X[:, j, 0] = 2.*np.sin(eta) + eta + np.random.normal(scale=noise_scale, size=n)
+        elif sem_type == 'linear-exp':
+            X[:, j, 0] = eta + np.random.exponential(scale=noise_scale, size=n)
+        elif sem_type == 'linear-gumbel':
+            X[:, j, 0] = eta + np.random.gumbel(scale=noise_scale, size=n)
+        else:
+            raise ValueError('unknown sem type')
+    if x_dims > 1 :
+        for i in range(x_dims-1):
+            X[:, :, i+1] = np.random.normal(scale=noise_scale, size=1)*X[:, :, 0] + np.random.normal(scale=noise_scale, size=1) + np.random.normal(scale=noise_scale, size=(n, d))
+        X[:, :, 0] = np.random.normal(scale=noise_scale, size=1) * X[:, :, 0] + np.random.normal(scale=noise_scale, size=1) + np.random.normal(scale=noise_scale, size=(n, d))
     return X
+
 
 def simulate_population_sample(W: np.ndarray,
                                Omega: np.ndarray) -> np.ndarray:
@@ -134,10 +127,8 @@ def simulate_population_sample(W: np.ndarray,
         X: [d,d] sample matrix
     """
     d = W.shape[0]
-    X = np.sqrt(d) * la.sqrtm(Omega).dot(np.linalg.pinv(np.eye(d) - W))
+    X = np.sqrt(d) * slin.sqrtm(Omega).dot(np.linalg.pinv(np.eye(d) - W))
     return X
-
-# Metric
 
 
 def count_accuracy(G_true: nx.DiGraph,
@@ -202,12 +193,15 @@ def count_accuracy(G_true: nx.DiGraph,
     return fdr, tpr, fpr, shd, pred_size
 
 
-# VAE utility functions
 
+#========================================
+# VAE utility functions
+#========================================
 def my_softmax(input, axis=1):
     trans_input = input.transpose(axis, 0).contiguous()
     soft_max_1d = F.softmax(trans_input)
     return soft_max_1d.transpose(axis, 0)
+
 
 def binary_concrete(logits, tau=1, hard=False, eps=1e-10):
     y_soft = binary_concrete_sample(logits, tau=tau, eps=eps)
@@ -230,6 +224,7 @@ def binary_concrete_sample(logits, tau=1, eps=1e-10):
 def sample_logistic(shape, eps=1e-10):
     uniform = torch.rand(shape).float()
     return torch.log(uniform + eps) - torch.log(1 - uniform + eps)
+
 
 def sample_gumbel(shape, eps=1e-10):
     """
@@ -376,7 +371,7 @@ def load_data_discrete(args, batch_size=1000, suffix='', debug = False):
     if args.data_type == 'synthetic':
         # generate data
         G = simulate_random_dag(d, degree, graph_type)
-        X = generate_linearsem(G, n, sem_type)
+        X = simulate_sem(G, n, sem_type)
 
     elif args.data_type == 'discrete':
         # get benchmark discrete data
@@ -414,7 +409,9 @@ def load_data(args, batch_size=1000, suffix='', debug = False):
     if args.data_type == 'synthetic':
         # generate data
         G = simulate_random_dag(d, degree, graph_type)
-        X = generate_linearsem(G, n, x_dims, sem_type, linear_type)
+        X = simulate_sem(G, n, x_dims, sem_type, linear_type)
+
+        print('X shape: ', X.shape)
 
     elif args.data_type == 'discrete':
         # get benchmark discrete data
@@ -622,12 +619,10 @@ def preprocess_adj(adj):
     return adj_normalized
 
 def preprocess_adj_new(adj):
-    # >> I - A^T
     adj_normalized = (torch.eye(adj.shape[0]).double() - (adj.transpose(0,1)))
     return adj_normalized
 
 def preprocess_adj_new1(adj):
-    # >> (I - A^T)^-1
     adj_normalized = torch.inverse(torch.eye(adj.shape[0]).double()-adj.transpose(0,1))
     return adj_normalized
 

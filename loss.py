@@ -11,7 +11,7 @@ def calculate_reconstruction_loss(preds, target, variance):
     mu2 = target
     neg_log_p = variance + torch.div(torch.pow(mu1-mu2, 2), 2.0 * np.exp(2.0 * variance))
 
-    return neg_log_p.sum() / (target.size(0))
+    return neg_log_p.sum() / (target.size(0)) # average over batch size
 
 # 2. Calculate KL Divergence Loss
 
@@ -33,6 +33,12 @@ def log_Normal_diag(x, mean, log_var, average=False, dim=None):
 def log_Normal_standard(x, average=False, dim=None):
     log_normal = -0.5 * torch.pow( x , 2 )
     if average:
-        return torch.mean( log_normal, dim )
+        return torch.mean(log_normal, dim)
     else:
-        return torch.sum( log_normal, dim )
+        return torch.sum(log_normal, dim)
+
+def kl_gaussian_sem(logits):
+    mu = logits
+    kl_div = mu * mu
+    kl_sum = kl_div.sum()
+    return (kl_sum / (logits.size(0)))*0.5

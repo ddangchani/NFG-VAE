@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataset import TensorDataset
+from torchviz import make_dot
 import math
 import numpy as np
 from utils import *
@@ -71,7 +72,7 @@ parser.add_argument('--decoder-hidden', type=int, default=64,
                     help='Number of hidden units.')
 parser.add_argument('--temp', type=float, default=0.5,
                     help='Temperature for Gumbel softmax.')
-parser.add_argument('--k_max_iter', type = int, default = 1e2,
+parser.add_argument('--k_max_iter', type = int, default = 100,
                     help ='the max iteration number for searching lambda and c')
 parser.add_argument('--encoder-dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
@@ -115,8 +116,7 @@ if not os.path.exists(folder):
 
 # Save the arguments
 meta_file = os.path.join(folder, 'meta.pkl')
-vae_indep_file = os.path.join(folder, 'vae_indep.pt')
-vae_dep_file = os.path.join(folder, 'vae_dep.pt')
+model_file = os.path.join(folder, 'model.pt')
 
 log_file = os.path.join(folder, 'log.txt')
 log = open(log_file, 'w')
@@ -130,9 +130,9 @@ G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.
 
 # 2.2. Generate Data
 if args.dependence_type == 1:
-    X, cov, cov_prev = generate_linear_sem_correlated(G, args.data_sample_size, args.dependence_prop, args.seed, return_cov=True)
+    X, cov, cov_prev = generate_linear_sem_correlated(G, args.data_sample_size, args.dependence_prop, args.seed, return_cov=True, x_dims=args.x_dims)
 else:
-    X = generate_linear_sem(graph=G, n=args.data_sample_size, dist=args.graph_dist, linear_type=args.graph_linear_type, loc=args.graph_mean, scale=args.graph_scale, seed=args.seed)
+    X = generate_linear_sem(graph=G, n=args.data_sample_size, dist=args.graph_dist, linear_type=args.graph_linear_type, loc=args.graph_mean, scale=args.graph_scale, seed=args.seed, x_dims=args.x_dims)
 
 # save X to file
 data_file = os.path.join(folder, 'data.pkl')
@@ -233,7 +233,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
     shd_train = []
     
     # set model in training mode
-    vae.train()
+    model.train()
     # scheduler.step()
 
     # update optimizer
@@ -255,20 +255,14 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
 
         optimizer.zero_grad()
 
-        # myA = encoder.adj_A, adj_A_tilt is identity matrix -> 왜 필요한가?
-        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model.forward(data)
-        
-        edges = logits
-
-        """in DAG-GNN
-        enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
-        edges = logits
-        dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
-        """
-        
         # Forward VAE
         z = {}
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model(data)
+
+        """in DAG-GNN
+        enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
+        dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
+        """
 
         if torch.sum(output != output):
             print('nan error \n')
@@ -276,6 +270,9 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
         # ELBO: 어떻게?
         loss_nll = calculate_reconstruction_loss(output, data, x_logvar)
         loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar)
+
+        print('loss_nll', loss_nll)
+        print('loss_kl', loss_kl)
 
         loss = loss_nll + loss_kl
 
@@ -333,7 +330,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
           'shd_trian: {:.10f}'.format(np.mean(shd_train)),
           'time: {:.4f}s'.format(time.time() - t))
     if np.mean(nll_val) < best_val_loss:
-        torch.save(vae.state_dict(), vae_indep_file)
+        torch.save(model.state_dict(), model_file)
         print('Best model so far, saving...')
         print('Epoch: {:04d}'.format(epoch),
               'nll_train: {:.10f}'.format(np.mean(nll_train)),

@@ -8,6 +8,7 @@ import math
 from utils import *
 import numpy as np
 
+
 from torch.autograd import Variable
 
 class FlowLayer(nn.Module):
@@ -71,7 +72,6 @@ class Encoder(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, inputs):
-        inputs = inputs.unsqueeze(-1)
 
         if torch.sum(self.adj_A != self.adj_A):
             print('nan error \n')
@@ -136,7 +136,7 @@ class Decoder(nn.Module):
         x_mean = self.sigmoid(self.decoder_mean(out))
         x_logvar = 0.
 
-        return mat_z, out.squeeze(-1), x_mean, x_logvar
+        return mat_z, out, x_mean, x_logvar
 
 
 class VAE(nn.Module):
