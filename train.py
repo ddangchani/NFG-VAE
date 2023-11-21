@@ -116,7 +116,17 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
     mse_train = []
     shd_trian = []
     # set model in training mode
+<<<<<<< Updated upstream
     model.train()
+=======
+    vae.train()
+    # scheduler.step() --> 이거 생략해도 되나요??
+
+    # update optimizer
+    optimizer, lr = update_optimizer(optimizer, args.lr, c_A)
+
+    z = {}
+>>>>>>> Stashed changes
 
     # start training
     if args.warmup == 0:
@@ -141,6 +151,7 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
         # myA = encoder.adj_A, adj_A_tilt is identity matrix -> 왜 필요한가?
+<<<<<<< Updated upstream
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_q = model.forward(data)
         # 만약 마지막에 에러 -> z_q를 z['0'], z['1']로
 =======
@@ -150,6 +161,8 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
         
 >>>>>>> Stashed changes
         edges = logits
+=======
+>>>>>>> Stashed changes
 
         """in DAG-GNN
         enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
@@ -159,15 +172,22 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
 <<<<<<< Updated upstream
 =======
         # Forward VAE
+<<<<<<< Updated upstream
         z = {}
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_q = vae(data)
         # 만약 마지막에 에러 -> z_q를 z['0'], z['1']로
 =======
 >>>>>>> Stashed changes
+=======
+        z = {} # z['0'] = z_0 & z['1'] = z_T in Tomczak & Welling (2017)
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model(data)
+        edges = logits
+>>>>>>> Stashed changes
 
         if torch.sum(output != output):
             print('nan error \n')
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
         # ELBO: 어떻게?
         loss_nll = calculate_reconstruction_loss
@@ -181,10 +201,20 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
         loss = loss_nll + loss_kl
 
         # sparse loss
+=======
+        # ELBO
+        loss_nll = calculate_reconstruction_loss(output, data, x_logvar) # in DAG-GNN
+        loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar) # in Tomczak & Welling (2017)
+
+        loss = loss_nll + loss_kl
+
+        # sparsity regularization term (maybe)
+        # add A loss
+>>>>>>> Stashed changes
         one_adj_A = origin_A # torch.mean(adj_A_tilt_decoder, dim =0)
         sparse_loss = args.tau_A * torch.sum(torch.abs(one_adj_A))
 
-        # other loss term
+        # other loss term (optional)
         if args.use_A_connect_loss:
             connect_gap = A_connect_loss(one_adj_A, args.graph_threshold, z_gap)
             loss += lambda_A * connect_gap + 0.5 * c_A * connect_gap * connect_gap
@@ -193,11 +223,20 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
             positive_gap = A_positive_loss(one_adj_A, z_positive)
             loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
 
+<<<<<<< Updated upstream
         # graph의 acyclic 성질을 유지하기 위한 augumented Lagurangian - DAG-GNN 참조
+=======
+        # 그래프의 Acyclic 성질을 위한 augumented Lagurangian term, refer to DAG-GNN
+>>>>>>> Stashed changes
         # compute h(A)
         h_A = _h_A(origin_A, args.data_variable_size)
         loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A) + sparse_loss #+  0.01 * torch.sum(variance * variance)
 
+<<<<<<< Updated upstream
+=======
+        # DAG-GNN 참조: backward 및 추가 metrics
+
+>>>>>>> Stashed changes
         loss.backward()
         loss = optimizer.step()
 
