@@ -118,8 +118,6 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
     # set model in training mode
     model.train()
 
-    z = {}
-
     # start training
     if args.warmup == 0:
         beta = 1.
@@ -141,9 +139,16 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
         optimizer.zero_grad()
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         # myA = encoder.adj_A, adj_A_tilt is identity matrix -> 왜 필요한가?
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_q = model.forward(data)
         # 만약 마지막에 에러 -> z_q를 z['0'], z['1']로
+=======
+        # forward VAE
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix -> 왜 필요한가?
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_0, z_T, LT = model.forward(data)
+        
+>>>>>>> Stashed changes
         edges = logits
 
         """in DAG-GNN
@@ -151,24 +156,31 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
         edges = logits
         dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
         """
+<<<<<<< Updated upstream
 =======
         # Forward VAE
         z = {}
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z_q = vae(data)
         # 만약 마지막에 에러 -> z_q를 z['0'], z['1']로
+=======
+>>>>>>> Stashed changes
 
         if torch.sum(output != output):
             print('nan error \n')
 
+<<<<<<< Updated upstream
         # ELBO: 어떻게?
         loss_nll = calculate_reconstruction_loss
         loss_kl = calculate_kl_loss
+=======
+        # ELBO: DAG-GNN의 recunstruction loss + ccLinIAF의 KL loss
+        loss_nll = calculate_reconstruction_loss(output, data, x_logvar)
+        loss_kl = calculate_kl_loss(z_0, z_T, z_q_mean, z_q_logvar)
+>>>>>>> Stashed changes
 
         loss = loss_nll + loss_kl
 
-        # 여기서부턴 DAG-GNN의 추가 loss: 의미는 잘 모름. 일단 추가 -> 나중에 삭제
-        # =======================
-        # add A loss
+        # sparse loss
         one_adj_A = origin_A # torch.mean(adj_A_tilt_decoder, dim =0)
         sparse_loss = args.tau_A * torch.sum(torch.abs(one_adj_A))
 
@@ -181,11 +193,10 @@ def train(epoch, model, best_val_loss, ground_truth_G, lambda_A, c_A, optimizer)
             positive_gap = A_positive_loss(one_adj_A, z_positive)
             loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
 
+        # graph의 acyclic 성질을 유지하기 위한 augumented Lagurangian - DAG-GNN 참조
         # compute h(A)
         h_A = _h_A(origin_A, args.data_variable_size)
         loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A) + sparse_loss #+  0.01 * torch.sum(variance * variance)
-
-        # DAG-GNN 참조: backward 및 추가 metrics, 마찬가지로 후에 수정
 
         loss.backward()
         loss = optimizer.step()
