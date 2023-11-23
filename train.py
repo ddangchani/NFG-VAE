@@ -114,7 +114,7 @@ torch.manual_seed(args.seed)
 
 now = datetime.datetime.now().strftime('%m%d_%H%M')
 if args.dependence_type == 1:
-    folder = f'results/dependence/{now}_{args.flow_type}_node{args.node_size}'
+    folder = f'results/dependence/{now}_{args.flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}'
 else:
     folder = f'results/independence/{args.graph_dist}/{now}_{args.flow_type}_node{args.node_size}'
 
