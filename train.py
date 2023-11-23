@@ -472,13 +472,13 @@ except KeyboardInterrupt:
     print('threshold 0.3, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
 
-f = open(folder + '/trueG', 'w')
+f = open(folder + '/trueG.txt', 'w')
 matG = np.matrix(nx.to_numpy_array(G))
 for line in matG:
     np.savetxt(f, line, fmt='%.5f')
 f.closed
 
-f1 = open(folder + '/predG', 'w')
+f1 = open(folder + '/predG.txt', 'w')
 matG1 = np.matrix(origin_A.data.clone().numpy())
 for line in matG1:
     np.savetxt(f1, line, fmt='%.5f')
@@ -487,6 +487,9 @@ f1.closed
 # LT to pickle
 pickle.dump(LT, open(folder + '/LT.pkl', 'wb'))
 
+# Total training time
+print("Optimization Finished!")
+print("Total time elapsed: {:.4f}s".format(time.time() - t_total), file=log)
 
 if log is not None:
     print(folder)
