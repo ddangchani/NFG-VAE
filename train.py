@@ -88,6 +88,12 @@ parser.add_argument('--x_dims', type=int, default=1, #changed here
                     help='The number of input dimensions: default 1.')
 parser.add_argument('--z_dims', type=int, default=1,
                     help='The number of latent variable dimensions: default the same as variable size.')
+parser.add_argument('--number_of_flows', type=int, default=5,
+                    help='The number of Householder flows: default 5.')
+parser.add_argument('--flow_type', type=str, default='IAF',
+                    help='The type of flows: "noflow"(DAG-GNN), "IAF", "Householder"')
+parser.add_argument('--lagrange', type=int, default=1,
+                    help='Use lagrange multipliers or not.')
 
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
@@ -105,11 +111,11 @@ torch.manual_seed(args.seed)
 
 # Folder to save the results, models, dataset
 
-now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+now = datetime.datetime.now().strftime('%m%d_%H%M')
 if args.dependence_type == 1:
-    folder = f'results/dependence/{now}'
+    folder = f'results/dependence/{now}_{args.flow_type}_node{args.node_size}'
 else:
-    folder = f'results/independence/{args.graph_dist}/{now}'
+    folder = f'results/independence/{args.graph_dist}/{now}_{args.flow_type}_node{args.node_size}'
 
 if not os.path.exists(folder):
     os.makedirs(folder)
@@ -175,8 +181,14 @@ rel_send = Variable(rel_send)
 adj_A = np.zeros([args.node_size, args.node_size])
 
 # 3.1. Load VAE
-
-vae = VAE(args=args, adj_A=adj_A)
+if args.flow_type == 'IAF':
+    vae = VAE_IAF(args=args, adj_A=adj_A)
+elif args.flow_type == 'Householder':
+    vae = VAE_HF(args=args, adj_A=adj_A)
+elif args.flow_type == 'Noflow':
+    vae = daggnn(args=args, adj_A=adj_A)
+else:
+    raise ValueError('Invalid flow type.')
 
 # 3.3. Optimizer
 optimizer = torch.optim.Adam(list(vae.parameters()), lr=args.lr)
@@ -237,13 +249,12 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
     # scheduler.step()
 
     # update optimizer
-    optimizer, lr = update_optimizer(optimizer, args.lr, c_A)
+    if args.lagrange:
+        optimizer, lr = update_optimizer(optimizer, args.lr, c_A)
 
     z = {}
 
     # start training
-    beta = 1.
-
     for batch_idx, (data, relations) in enumerate(train_loader):
 
         if args.cuda:
@@ -257,50 +268,54 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
 
         # Forward VAE
         z = {}
-        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model(data)
+        if args.flow_type == 'IAF':
+            z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model(data, rel_rec, rel_send)
+        else:
+            z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'] = model(data, rel_rec, rel_send)
 
-        """in DAG-GNN
+        """
+        in DAG-GNN
         enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
         dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
         """
 
-        if torch.sum(output != output):
+        if torch.sum(x_mean != x_mean):
             print('nan error \n')
 
-        # ELBO: 어떻게?
-        loss_nll = calculate_reconstruction_loss(output, data, x_logvar)
-        loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar)
+        # KL Divergence Loss
+        if args.flow_type == 'Noflow':
+            loss_kl = kl_gaussian_sem(logits) # DAG-GNN
+        else:
+            loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims) # VAE_VPFLOWS
 
-        print('loss_nll', loss_nll)
-        print('loss_kl', loss_kl)
+        # Reconstruction Loss
+        loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
 
-        loss = loss_nll + loss_kl
-
-        # 여기서부턴 DAG-GNN의 추가 loss: 의미는 잘 모름. 일단 추가 -> 나중에 삭제
-        # =======================
         # add A loss
-        one_adj_A = origin_A # torch.mean(adj_A_tilt_decoder, dim =0)
-        sparse_loss = args.tau_A * torch.sum(torch.abs(one_adj_A))
+        sparse_loss = args.tau_A * torch.sum(torch.abs(origin_A))
 
+        loss = loss_nll + loss_kl + sparse_loss
+        
         # other loss term
-        if args.use_A_connect_loss:
-            connect_gap = A_connect_loss(one_adj_A, args.graph_threshold, z_gap)
-            loss += lambda_A * connect_gap + 0.5 * c_A * connect_gap * connect_gap
+        # if args.use_A_connect_loss:
+        #     connect_gap = A_connect_loss(one_adj_A, args.graph_threshold, z_gap)
+        #     loss += lambda_A * connect_gap + 0.5 * c_A * connect_gap * connect_gap
 
-        if args.use_A_positiver_loss:
-            positive_gap = A_positive_loss(one_adj_A, z_positive)
-            loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
+        # if args.use_A_positiver_loss:
+        #     positive_gap = A_positive_loss(one_adj_A, z_positive)
+        #     loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
 
         # compute h(A)
-        h_A = _h_A(origin_A, args.node_size)
-        loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A) + sparse_loss #+  0.01 * torch.sum(variance * variance)
+        if args.lagrange:
+            h_A = _h_A(origin_A, args.node_size)
+            loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A)
 
         # DAG-GNN 참조: backward 및 추가 metrics, 마찬가지로 후에 수정
 
         loss.backward()
         loss = optimizer.step()
 
-        myA.data = stau(myA.data, args.tau_A*lr)
+        origin_A.data = stau(origin_A.data, args.tau_A*args.lr)
 
         if torch.sum(origin_A != origin_A):
             print('nan error\n')
@@ -311,12 +326,13 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
 
         fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
 
-        mse_train.append(F.mse_loss(output, data).item())
+        mse_train.append(F.mse_loss(x_mean, data).item())
         nll_train.append(loss_nll.item())
         kl_train.append(loss_kl.item())
         shd_train.append(shd)
 
-    print(h_A.item())
+    if args.lagrange:
+        print(h_A.item()) # print h(A) value
     nll_val = []
     acc_val = []
     kl_val = []
@@ -344,8 +360,11 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
     if 'graph' not in vars():
         print('error on assign')
 
+    if args.flow_type == 'IAF':
+        return np.mean(kl_train) + np.mean(nll_train), np.mean(nll_train), np.mean(mse_train), graph, origin_A, LT
 
-    return np.mean(np.mean(kl_train)  + np.mean(nll_train)), np.mean(nll_train), np.mean(mse_train), graph, origin_A, LT
+    else:
+        return np.mean(kl_train) + np.mean(nll_train), np.mean(nll_train), np.mean(mse_train), graph, origin_A, None
 
 
 # 5. Save Model (checkpoint, etc.)

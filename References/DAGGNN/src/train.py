@@ -259,11 +259,6 @@ rel_rec = Variable(rel_rec)
 rel_send = Variable(rel_send)
 
 
-x = torch.zeros(args.batch_size, args.data_variable_size, args.x_dims)
-make_dot(encoder(x.double(), rel_rec, rel_send), params=dict(encoder.named_parameters())).render("encoder", format="png")
-exit()
-
-
 # compute constraint h(A) value
 def _h_A(A, m):
     expm_A = matrix_poly(A*A, m)
