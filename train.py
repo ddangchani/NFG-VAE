@@ -137,7 +137,7 @@ G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.
 
 # 2.2. Generate Data
 if args.dependence_type == 1:
-    X, cov, cov_prev = generate_linear_sem_correlated(G, args.data_sample_size, args.dependence_prop, args.seed, return_cov=True, x_dims=args.x_dims)
+    X, cov, cov_prev, G = generate_linear_sem_correlated(G, args.data_sample_size, args.dependence_prop, args.seed, return_cov=True, x_dims=args.x_dims, return_graph=True)
 else:
     X = generate_linear_sem(graph=G, n=args.data_sample_size, dist=args.graph_dist, linear_type=args.graph_linear_type, loc=args.graph_mean, scale=args.graph_scale, seed=args.seed, x_dims=args.x_dims)
 
