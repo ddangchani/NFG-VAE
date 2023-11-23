@@ -4,8 +4,8 @@
 
 ## Topic
 
-- Learning Non-Gaussian DAGs with Variational Autoencoder
-- Learning Linear SEM with dependent noise using Normalizing Flow
+- Learning Non-Gaussian DAGs with IAF based VAE
+- Learning Linear SEM with dependent noise (i.e. semi-Markovian graph) using IAF based VAE
 
 
 ## Environment
@@ -13,15 +13,6 @@
 - Python 3.8
 - Pytorch 2.1.0
 
-## Structure
-
-- `References/` : Codes used for this project
-- `Tex/` : Latex files for report
-- `results/` : Results of experiments
-- `model.py` : VAE, NF code
-- `train.py` : main code for run model training
-- `data.py` : ~~code for generating data~~ (clear!)
-- `utils.py` : code for evaluation(metric)
 
 ## Code Sources
 
