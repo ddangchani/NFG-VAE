@@ -370,7 +370,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         pbar.set_description('Epoch: {:04d}'.format(epoch))
         pbar.set_postfix(to_print)
     
-        if np.mean(nll_val) < best_val_loss:
+        if nll_val and (np.mean(nll_val) < best_val_loss):
             torch.save(model.state_dict(), model_file)
             pbar.write('Best model so far, saving...')
             pbar.write('Epoch: {:04d}'.format(epoch) +
