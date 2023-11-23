@@ -500,9 +500,26 @@ except KeyboardInterrupt:
     print('threshold 0.3, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
 # Save the Graph metrics
-fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_ELBO_graph))
-print('Best ELBO Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
+ls = ['ELBO', 'NLL', 'MSE']
+for idx, graph_res in enumerate([best_ELBO_graph, best_NLL_graph, best_MSE_graph]):
+    fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph_res))
+    print('Best {} Graph Accuracy: fdr'.format(ls[idx]), fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
+graph = origin_A.data.clone().numpy()
+graph[np.abs(graph) < 0.1] = 0
+# print(graph)
+fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
+print('threshold 0.1, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
+
+graph[np.abs(graph) < 0.2] = 0
+# print(graph)
+fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
+print('threshold 0.2, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
+
+graph[np.abs(graph) < 0.3] = 0
+# print(graph)
+fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
+print('threshold 0.3, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
 f = open(folder + '/trueG.txt', 'w')
 matG = np.matrix(nx.to_numpy_array(G))
