@@ -440,8 +440,8 @@ try:
                     best_epoch = epoch
                     best_MSE_graph = graph
 
-            print("Optimization Finished!")
-            print("Best Epoch: {:04d}".format(best_epoch))
+            # print("Optimization Finished!")
+            # print("Best Epoch: {:04d}".format(best_epoch))
             if ELBO_loss > 2 * best_ELBO_loss:
                 break
 
@@ -453,8 +453,8 @@ try:
             else:
                 break
 
-            # update parameters
-            # h_A, adj_A are computed in loss anyway, so no need to store
+        # update parameters
+        # h_A, adj_A are computed in loss anyway, so no need to store
         h_A_old = h_A_new.item()
         lambda_A += c_A * h_A_new.item()
 
