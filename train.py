@@ -89,9 +89,9 @@ parser.add_argument('--x_dims', type=int, default=1, #changed here
 parser.add_argument('--z_dims', type=int, default=1,
                     help='The number of latent variable dimensions: default the same as variable size.')
 parser.add_argument('--number_of_flows', type=int, default=5,
-                    help='The number of Householder flows: default 5.')
+                    help='The number of HF flows: default 5.')
 parser.add_argument('--flow_type', type=str, default='IAF',
-                    help='The type of flows: "noflow"(DAG-GNN), "IAF", "Householder"')
+                    help='The type of flows: "noflow"(DAG-GNN), "IAF", "HF"(Householder).')
 parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
 
@@ -183,7 +183,7 @@ adj_A = np.zeros([args.node_size, args.node_size])
 # 3.1. Load VAE
 if args.flow_type == 'IAF':
     vae = VAE_IAF(args=args, adj_A=adj_A)
-elif args.flow_type == 'Householder':
+elif args.flow_type == 'HF':
     vae = VAE_HF(args=args, adj_A=adj_A)
 elif args.flow_type == 'Noflow':
     vae = daggnn(args=args, adj_A=adj_A)

@@ -227,6 +227,7 @@ class HF(nn.Module):
         # v * v_T
         vT = v.transpose(1,2) # v_T : transpose of v : B x 1 x L
         vvT = torch.bmm(v, vT) # vvT : batchdot( B x L x 1 * B x 1 x L ) = B x L x L
+        
         # v * v_T * z
         vvTz = torch.bmm(vvT, z) # A * z : batchdot( B x L x L * B x L x 1 ).squeeze(2) = (B x L x 1).squeeze(2) = B x L
         # calculate norm ||v||^2
@@ -273,11 +274,12 @@ class VAE_HF(nn.Module):
         # Householder Flow:
         if self.args.number_of_flows > 0:
             v['1'] = self.v_layers[0](h_last.squeeze(-1)).unsqueeze(-1)
-            z['1'] = self.HF(v['1'], z['0'].squeeze(-1)).unsqueeze(-1)
+            z['1'] = self.HF(v['1'], z['0'])
             for i in range(1, self.args.number_of_flows):
-                v[str(i + 1)] = self.v_layers[i](v[str(i)])
+                v[str(i + 1)] = self.v_layers[i](v[str(i)].squeeze(-1)).unsqueeze(-1)
                 z[str(i + 1)] = self.HF(v[str(i + 1)], z[str(i)])
-        return 
+        
+        return z
 
     def forward(self, input, rel_rec, rel_send):
         z = {}
