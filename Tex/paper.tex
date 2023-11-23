@@ -1,0 +1,125 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{mathrsfs}
+\usepackage{amssymb}
+\usepackage[version=4]{mhchem}
+\usepackage{stmaryrd}
+\usepackage{bbold}
+\usepackage{enumitem}
+\usepackage{hanging} %reference indent
+\usepackage[a4paper,left=25mm,right=25mm,top=40mm,bottom=40mm]{geometry}
+\usepackage{sectsty}
+\sectionfont{\fontsize{10}{15}\selectfont}
+\subsectionfont{\fontsize{10}{15}}
+\usepackage[mathlines,switch]{lineno}
+\usepackage{amsthm}
+\usepackage{kotex}
+\usepackage{xcolor}
+\usepackage{graphicx} % insert image
+\usepackage{multicol} % multi column
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{multirow} % multirow in table
+\usepackage{tikz}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\modulolinenumbers[5]
+% \linenumbers
+
+\usepackage{titlesec}
+\titleformat{\section}
+{\normalfont\fontsize{12}{12}\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+{\normalfont\fontsize{11}{11}\bfseries}{\thesubsection}{1em}{}
+\titlespacing{\paragraph}{0pt}{\parskip}{5pt}
+\titleformat{\title}
+{\normalfont\fontsize{13}{13}\bfseries}{\thetitle}{1em}{}
+
+\usepackage{indentfirst} % first line indent
+\setlength{\parindent}{10pt}
+
+\renewcommand{\arraystretch}{1.1}
+
+\title{\textbf{NFG-VAE: Learning Semi-Markovian DAGs with Flow based VAE}}
+
+\author{Dangchan Kim, Byungguk Kang, Jaeseok Kim, Minchan Kim}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+    We propose a method to learn the structure of a semi-Markovian directed acyclic graph, i.e. mixed graph with directed and undirected edges using a flow-based variational autoencoder. The proposed method is based on the assumption that the noise matrix in the linear structural equation model is a latent variable. In order to learn the structure of the mixed graph, we used an inverse autoregressive flow to approximate the dependency structure of the noise matrix and their prior distribution. We conducted experiments on simulated data adjusting the number of nodes and the proportion of bidirectional edges. The code is available at \url{https://github.io/ddangchani/NFG-VAE}.
+\end{abstract}
+
+\section{Introduction}
+
+Here is the introduction.
+
+\section{Directed Acyclic Graphs and Mixed Graphs}
+\subsection{Directed Acyclic Graphs}
+
+Here is the introduction of DAGs
+
+\subsection{Mixed Graphs}
+
+Here is the introduction of mixed graphs
+
+\subsection{Graph Learning}
+
+Here is the introduction of graph learning
+
+\section{Variational Autoencoders and Normalizing Flows}
+
+\subsection{Variational Autoencoders}
+
+Here is the introduction of VAEs
+
+\subsection{Normalizing Flows}
+
+Here is the introduction of normalizing flows
+
+\section{Method}
+
+\subsection{Model}
+
+Here is the introduction of our model
+
+\subsection{Learning}
+
+Here is the introduction (acyclicity constraint, etc.)
+
+\section{Experiment}
+
+Here is the introduction of our simulation study
+
+\paragraph*{Datasets}
+
+Here is the introduction of our datasets
+
+\paragraph*{Evaluation}
+
+Here is the introduction of our evaluation(SHD, etc.)
+
+\subsection{Independent Noise Case}
+
+Here is the introduction of our experiment on independent noise case
+
+\subsection{Dependent Noise Case}
+
+Here is the introduction of our experiment on dependent noise case
+
+\section{Conclusion}
+
+Here is the conclusion
+
+% Biblography
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}
+
