@@ -141,7 +141,7 @@ class Decoder(nn.Module):
 
 class VAE_IAF(nn.Module):
     def __init__(self, args, adj_A):
-        super(VAE, self).__init__()
+        super(VAE_IAF, self).__init__()
 
         self.args = args
         self.encoder = Encoder(args, adj_A=adj_A)
