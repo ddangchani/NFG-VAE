@@ -4,6 +4,7 @@ Main function for traininng DAG-GNN
 
 '''
 
+
 from __future__ import division
 from __future__ import print_function
 
@@ -12,6 +13,7 @@ import argparse
 import pickle
 import os
 import datetime
+from torchviz import make_dot
 
 # import torch
 import torch.optim as optim
@@ -20,7 +22,7 @@ import math
 
 # import numpy as np
 from utils import *
-from models import *
+from modules import *
 
 parser = argparse.ArgumentParser()
 
@@ -41,10 +43,8 @@ parser.add_argument('--graph_type', type=str, default='erdos-renyi',
                     help='the type of DAG graph by generation method')
 parser.add_argument('--graph_degree', type=int, default=2,
                     help='the number of degree in generated DAG graph')
-parser.add_argument('--graph_dist', type=str, default='normal',
-                    help='the distribution of noise matrix type: normal, uniform, exponential, gamma, beta')
-parser.add_argument('--graph_dist_params', type=float, default=[1.0],
-                    help='the parameters of noise distribution')
+parser.add_argument('--graph_sem_type', type=str, default='linear-gauss',
+                    help='the structure equation model (SEM) parameter type')
 parser.add_argument('--graph_linear_type', type=str, default='nonlinear_2',
                     help='the synthetic data type: linear -> linear SEM, nonlinear_1 -> x=Acos(x+1)+z, nonlinear_2 -> x=2sin(A(x+0.5))+A(x+0.5)+z')
 parser.add_argument('--edge-types', type=int, default=2,
@@ -140,21 +140,25 @@ if args.cuda:
 if args.dynamic_graph:
     print("Testing with dynamically re-computed graph.")
 
-# Folder to save the results
+# Save model and meta-data. Always saves in a new sub-folder.
+if args.save_folder:
+    exp_counter = 0
+    now = datetime.datetime.now()
+    timestamp = now.isoformat()
+    save_folder = '{}/exp{}/'.format(args.save_folder, timestamp)
+    # safe_name = save_folder.text.replace('/', '_')
+    os.makedirs(save_folder)
+    meta_file = os.path.join(save_folder, 'metadata.pkl')
+    encoder_file = os.path.join(save_folder, 'encoder.pt')
+    decoder_file = os.path.join(save_folder, 'decoder.pt')
 
-folder = f'results/{dist}_{linear_type}_{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}/'
-os.makedirs(folder, exist_ok=True)
-meta_file = os.path.join(folder, 'metadata.pkl')
-encoder_file = os.path.join(folder, 'encoder.pt')
-decoder_file = os.path.join(folder, 'decoder.pt')
+    log_file = os.path.join(save_folder, 'log.txt')
+    log = open(log_file, 'w')
 
-log_file = os.path.join(folder, 'log.txt')
-log = open(log_file, 'w')
-
-# Dump the parameters to metadata.pkl
-meta = vars(args)
-with open(meta_file, 'wb') as f:
-    pickle.dump(meta, f)
+    pickle.dump({'args': args}, open(meta_file, "wb"))
+else:
+    print("WARNING: No save_folder provided!" +
+          "Testing (within this script) will throw an error.")
 
 
 # ================================================
@@ -258,7 +262,7 @@ rel_send = Variable(rel_send)
 # compute constraint h(A) value
 def _h_A(A, m):
     expm_A = matrix_poly(A*A, m)
-    h_A = torch.trace(expm_A) - mf
+    h_A = torch.trace(expm_A) - m
     return h_A
 
 prox_plus = torch.nn.Threshold(0.,0.)

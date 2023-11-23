@@ -79,7 +79,7 @@ class VAE(nn.Module):
 
         # Householder flow
         self.v_layers = nn.ModuleList()
-        # T >0
+        # T > 0
         if self.args.number_of_flows > 0:
             # T = 1
             self.v_layers.append(nn.Linear(300, self.args.z1_size))

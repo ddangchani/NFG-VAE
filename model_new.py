@@ -11,34 +11,6 @@ import numpy as np
 
 from torch.autograd import Variable
 
-class FlowLayer(nn.Module):
-    """
-    Flow layer class
-    """
-    def __init__(self, args):
-        super(FlowLayer, self).__init__()
-        self.args = args
-    
-    def forward(self, L, z):
-        """
-        :param L: batch_size (B) x latent_size^2 (L^2) from encoder output
-        :param z: batch_size (B) x latent_size (L) from encoder output z0
-        :return: z_new = L * z
-        """
-        # transform L to lower triangular matrix
-        L_matrix = L.view(-1, self.args.z_size, self.args.z_size) # resize to get B x L x L
-        LTmask = torch.tril(torch.ones(self.args.z_size, self.args.z_size), diagonal=-1) # lower-triangular mask matrix
-        I = Variable(torch.eye(self.args.z_size, self.args.z_size).expand(L_matrix.size(0), self.args.z_size, self.args.z_size))
-        if self.args.cuda:
-            LTmask = LTmask.cuda()
-            I = I.cuda()
-        LTmask = Variable(LTmask)
-        LTmask = LTmask.unsqueeze(0).expand(L_matrix.size(0), self.args.z_size, self.args.z_size)
-        LT = torch.mul(L_matrix, LTmask) + I # Lower triangular batches
-        z_new = torch.bmm(LT, z) # B x L x L * B x L x 1 = B x L x 1
-
-        return z_new
-
 class Encoder(nn.Module):
     """
     Encoder class for VAE
@@ -48,9 +20,9 @@ class Encoder(nn.Module):
 
         self.args = args
         self.adj_A = nn.Parameter(torch.from_numpy(adj_A).double(), requires_grad=True)
-        self.Wa = nn.Parameter(torch.zeros(args.z_dims), requires_grad=True)
-        self.fc1 = nn.Linear(args.x_dims, args.encoder_hidden, bias=True)
-        self.fc2 = nn.Linear(args.encoder_hidden, args.z_dims, bias=True)
+        self.Wa = nn.Parameter(torch.zeros(args.z_size), requires_grad=True)
+        self.fc1 = nn.Linear(args.z_size, args.encoder_hidden, bias=True)
+        self.fc2 = nn.Linear(args.encoder_hidden, args.z_size, bias=True)
         self.batch_size = args.batch_size
 
         # for other loss
@@ -58,8 +30,8 @@ class Encoder(nn.Module):
         self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(adj_A)).double())
 
         # For Flow layer
-        self.encoder_mean = nn.Linear(args.z_dims, args.z_dims)
-        self.encoder_logvar = nn.Linear(args.z_dims, args.z_dims)
+        self.encoder_mean = nn.Linear(args.z_size, args.z_size)
+        self.encoder_logvar = nn.Linear(args.z_size, args.z_size)
 
         self.init_weights()
 
@@ -75,16 +47,21 @@ class Encoder(nn.Module):
 
         if torch.sum(self.adj_A != self.adj_A):
             print('nan error \n')
+        inputs = inputs.squeeze(-1)
 
         adj_A1 = torch.sinh(3.*self.adj_A.float()) # amplify A
 
         # adj_Aforz = $I-A^T$
         adj_Aforz = (torch.eye(adj_A1.shape[0]).float() - (adj_A1.transpose(0,1)))
-
+        adj_Aforz = adj_Aforz.unsqueeze(0).repeat(self.batch_size, 1, 1)
         adj_A = torch.eye(adj_A1.size()[0]).float()
         h0 = F.relu((self.fc1(inputs.float()))) # first hidden layer
         h1 = (self.fc2(h0)) # second hidden layer
-        logits = torch.matmul(adj_Aforz, h1 + self.Wa) - self.Wa
+        h2 = h1 + self.Wa # add Wa
+        print(h2.unsqueeze(-1).shape)
+        logits = torch.bmm(adj_Aforz, h2.unsqueeze(-1)) - self.Wa
+
+        print(logits.shape)
 
         # For Flow layer
         z_q_mean = self.encoder_mean(logits)
@@ -92,6 +69,34 @@ class Encoder(nn.Module):
         
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
 
+class FlowLayer(nn.Module):
+    """
+    Flow layer class
+    """
+    def __init__(self, args):
+        super(FlowLayer, self).__init__()
+        self.args = args
+    
+    def forward(self, L, z):
+        """
+        :param L: batch_size (B) x latent_size^2 (L^2) from encoder output
+        :param z: batch_size (B) x latent_size (L) from encoder output z0
+        :return: z_new = L * z
+        """
+        print(L.shape)
+        # transform L to lower triangular matrix
+        L_matrix = L.view(-1, self.args.z_size, self.args.z_size) # resize to get B x L x L
+        LTmask = torch.tril(torch.ones(self.args.z_size, self.args.z_size), diagonal=-1) # lower-triangular mask matrix
+        I = Variable(torch.eye(self.args.z_size, self.args.z_size).expand(L_matrix.size(0), self.args.z_size, self.args.z_size))
+        if self.args.cuda:
+            LTmask = LTmask.cuda()
+            I = I.cuda()
+        LTmask = Variable(LTmask)
+        LTmask = LTmask.unsqueeze(0).expand(L_matrix.size(0), self.args.z_size, self.args.z_size)
+        LT = torch.mul(L_matrix, LTmask) + I # Lower triangular batches
+        z_new = torch.bmm(LT, z) # B x L x L * B x L x 1 = B x L x 1
+
+        return z_new
 
 class Decoder(nn.Module):
     """
@@ -101,13 +106,13 @@ class Decoder(nn.Module):
     def __init__(self, args):
         super(Decoder, self).__init__()
 
-        self.out_fc1 = nn.Linear(args.z_dims, args.decoder_hidden, bias = True)
-        self.out_fc2 = nn.Linear(args.decoder_hidden, args.z_dims, bias = True)
+        self.out_fc1 = nn.Linear(args.z_size, args.decoder_hidden, bias = True)
+        self.out_fc2 = nn.Linear(args.decoder_hidden, args.z_size, bias = True)
 
         self.batch_size = args.batch_size
         self.node_size = args.node_size
 
-        self.decoder_mean = nn.Linear(args.z_dims, args.z_dims)
+        self.decoder_mean = nn.Linear(args.z_size, args.z_size)
         self.sigmoid = nn.Sigmoid()
 
         self.init_weights()
@@ -139,15 +144,15 @@ class Decoder(nn.Module):
         return mat_z, out, x_mean, x_logvar
 
 
-class VAE(nn.Module):
+class VAE_IAF(nn.Module):
     def __init__(self, args, adj_A):
-        super(VAE, self).__init__()
+        super(VAE_IAF, self).__init__()
 
         self.args = args
         self.encoder = Encoder(args, adj_A=adj_A)
         self.decoder = Decoder(args)
         self.flow = FlowLayer(args)
-        self.encoder_L = nn.Linear(args.z_dims, args.z_size)
+        self.encoder_L = nn.Linear(args.z_size, args.z_size * args.z_size)
         self.softmax = nn.Softmax()
 
         for m in self.modules():
@@ -176,7 +181,7 @@ class VAE(nn.Module):
         z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
 
         # Flow layer
-        L = self.encoder_L(logits)
+        L = self.encoder_L(logits.squeeze(-1))
         z['1'] = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
@@ -193,7 +198,7 @@ class daggnn(nn.Module):
 
         self.args = args
         self.adj_A = nn.Parameter(torch.from_numpy(adj_A).double(), requires_grad=True)
-        self.Wa = nn.Parameter(torch.zeros(args.z_dims), requires_grad=True)
+        self.Wa = nn.Parameter(torch.zeros(args.z_size), requires_grad=True)
 
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_() # standard deviation from log variance
@@ -227,7 +232,6 @@ class HF(nn.Module):
         # v * v_T
         vT = v.transpose(1,2) # v_T : transpose of v : B x 1 x L
         vvT = torch.bmm(v, vT) # vvT : batchdot( B x L x 1 * B x 1 x L ) = B x L x L
-        
         # v * v_T * z
         vvTz = torch.bmm(vvT, z) # A * z : batchdot( B x L x L * B x L x 1 ).squeeze(2) = (B x L x 1).squeeze(2) = B x L
         # calculate norm ||v||^2
@@ -278,7 +282,6 @@ class VAE_HF(nn.Module):
             for i in range(1, self.args.number_of_flows):
                 v[str(i + 1)] = self.v_layers[i](v[str(i)].squeeze(-1)).unsqueeze(-1)
                 z[str(i + 1)] = self.HF(v[str(i + 1)], z[str(i)])
-        
         return z
 
     def forward(self, input, rel_rec, rel_send):
