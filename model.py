@@ -139,7 +139,7 @@ class Decoder(nn.Module):
         return mat_z, out, x_mean, x_logvar
 
 
-class VAE(nn.Module):
+class VAE_IAF(nn.Module):
     def __init__(self, args, adj_A):
         super(VAE, self).__init__()
 
