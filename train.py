@@ -15,6 +15,7 @@ from utils import *
 from model import *
 from data import *
 from loss import *
+from tqdm import tqdm
 
 # 1. Arguments(argparse)
 
@@ -233,7 +234,7 @@ def update_optimizer(optimizer, original_lr, c_A):
 # 4. Training Loop (epoch, batch, loss, optimizer, etc.)
 
 
-def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
+def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
     # set loss to 0
     train_loss = 0
     train_re = 0
@@ -331,31 +332,57 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer):
         kl_train.append(loss_kl.item())
         shd_train.append(shd)
 
-    if args.lagrange:
-        print(h_A.item()) # print h(A) value
     nll_val = []
     acc_val = []
     kl_val = []
     mse_val = []
-
-    print('Epoch: {:04d}'.format(epoch),
-          'nll_train: {:.10f}'.format(np.mean(nll_train)),
-          'kl_train: {:.10f}'.format(np.mean(kl_train)),
-          'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
-          'mse_train: {:.10f}'.format(np.mean(mse_train)),
-          'shd_trian: {:.10f}'.format(np.mean(shd_train)),
-          'time: {:.4f}s'.format(time.time() - t))
-    if np.mean(nll_val) < best_val_loss:
-        torch.save(model.state_dict(), model_file)
-        print('Best model so far, saving...')
+    
+    if pbar is None:
         print('Epoch: {:04d}'.format(epoch),
-              'nll_train: {:.10f}'.format(np.mean(nll_train)),
-              'kl_train: {:.10f}'.format(np.mean(kl_train)),
-              'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
-              'mse_train: {:.10f}'.format(np.mean(mse_train)),
-              'shd_trian: {:.10f}'.format(np.mean(shd_train)),
-              'time: {:.4f}s'.format(time.time() - t), file=log)
-        log.flush()
+            'nll_train: {:.10f}'.format(np.mean(nll_train)),
+            'kl_train: {:.10f}'.format(np.mean(kl_train)),
+            'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
+            'mse_train: {:.10f}'.format(np.mean(mse_train)),
+            'shd_trian: {:.10f}'.format(np.mean(shd_train)),
+            'time: {:.4f}s'.format(time.time() - t))
+    
+        if np.mean(nll_val) < best_val_loss:
+            torch.save(model.state_dict(), model_file)
+            print('Best model so far, saving...')
+            print('Epoch: {:04d}'.format(epoch),
+                'nll_train: {:.10f}'.format(np.mean(nll_train)),
+                'kl_train: {:.10f}'.format(np.mean(kl_train)),
+                'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
+                'mse_train: {:.10f}'.format(np.mean(mse_train)),
+                'shd_trian: {:.10f}'.format(np.mean(shd_train)),
+                'time: {:.4f}s'.format(time.time() - t), file=log)
+            log.flush()
+    
+    else:
+        to_print = {'nll_train' : '{:.4f}'.format(np.mean(nll_train)),
+                    'kl_train' : '{:.4f}'.format(np.mean(kl_train)),
+                    'ELBO_loss' : '{:.4f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
+                    'shd_trian' : '{:.4f}'.format(np.mean(shd_train))}
+
+        if args.lagrange:
+            to_print['h_A'] = '{:.4f}'.format(h_A.item())
+        
+        pbar.set_description('Epoch: {:04d}'.format(epoch))
+        pbar.set_postfix(to_print)
+    
+        if np.mean(nll_val) < best_val_loss:
+            torch.save(model.state_dict(), model_file)
+            pbar.write('Best model so far, saving...')
+            pbar.write('Epoch: {:04d}'.format(epoch) +
+                'nll_train: {:.10f}'.format(np.mean(nll_train)) +
+                'kl_train: {:.10f}'.format(np.mean(kl_train)) +
+                'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)) +
+                'mse_train: {:.10f}'.format(np.mean(mse_train)) +
+                'shd_trian: {:.10f}'.format(np.mean(shd_train)) +
+                'time: {:.4f}s'.format(time.time() - t))
+            log.flush()
+
+        pbar.update(1)
 
     if 'graph' not in vars():
         print('error on assign')
@@ -391,12 +418,13 @@ h_tol = args.h_tol
 k_max_iter = int(args.k_max_iter)
 h_A_old = np.inf
 
+pbar = tqdm(range(args.epochs * k_max_iter), desc='Training')
 
 try:
     for step_k in range(k_max_iter):
         while c_A < 1e+20:
             for epoch in range(args.epochs):
-                ELBO_loss, NLL_loss, MSE_loss, graph, origin_A, LT = train(epoch=epoch, model=vae, best_val_loss=best_ELBO_loss, G=G, lambda_A=lambda_A, c_A=c_A, optimizer=optimizer)
+                ELBO_loss, NLL_loss, MSE_loss, graph, origin_A, LT = train(epoch=epoch, model=vae, best_val_loss=best_ELBO_loss, G=G, lambda_A=lambda_A, c_A=c_A, optimizer=optimizer, pbar=pbar)
                 if ELBO_loss < best_ELBO_loss:
                     best_ELBO_loss = ELBO_loss
                     best_epoch = epoch
@@ -470,6 +498,10 @@ except KeyboardInterrupt:
     # print(graph)
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
     print('threshold 0.3, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
+
+# Save the Graph metrics
+fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_ELBO_graph))
+print('Best ELBO Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
 
 f = open(folder + '/trueG.txt', 'w')
