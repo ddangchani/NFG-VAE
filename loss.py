@@ -30,14 +30,26 @@ def calculate_kl_loss(z_0, z_T, z_q_mean, z_q_logvar, z_dims):
     return kl_loss.sum() / (z_0.size(0))
 
 def log_Normal_diag(x, mean, log_var, dim=None):
-    log_normal = -0.5 * ( log_var + torch.pow( x - mean, 2 ) * torch.pow( torch.exp( log_var ), -1) )
-    return torch.sum( log_normal, dim )
+    log_normal = -0.5 * (log_var + torch.pow(x - mean, 2) * torch.pow(torch.exp(log_var), -1))
+    return torch.sum(log_normal, dim)
+
+def log_Normal_mean(x, mean, dim=None):
+    log_normal = -0.5 * torch.pow(x - mean, 2)
+    return torch.sum(log_normal, dim)
 
 def log_Normal_standard(x, dim=None):
-    log_normal = -0.5 * torch.pow( x , 2 )
+    log_normal = -0.5 * torch.pow(x , 2)
     return torch.sum(log_normal, dim)
 
 def kl_gaussian_sem(z_mean, z_logvar):
     kl_div = torch.exp(2*z_logvar) - 2*z_logvar + z_mean * z_mean
     kl_sum = kl_div.sum()
     return (kl_sum / z_mean.size(0))
+
+# prevent overparameterization
+def calculate_kl_prevent(z_0, z_T, z_q_mean, z_q_logvar, z_dims):
+    log_p_z = log_Normal_standard(z_T, dim=z_dims)
+    log_q_z = log_Normal_mean(z_0, z_q_mean, dim=z_dims)
+    kl_loss = -(log_p_z - log_q_z)
+
+    return kl_loss.sum() / (z_0.size(0))
