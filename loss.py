@@ -29,7 +29,6 @@ def calculate_kl_loss(z_0, z_T, z_q_mean, z_q_logvar, z_dims):
 
     return kl_loss.sum() / (z_0.size(0))
 
-
 def log_Normal_diag(x, mean, log_var, dim=None):
     log_normal = -0.5 * ( log_var + torch.pow( x - mean, 2 ) * torch.pow( torch.exp( log_var ), -1) )
     return torch.sum( log_normal, dim )
@@ -38,8 +37,7 @@ def log_Normal_standard(x, dim=None):
     log_normal = -0.5 * torch.pow( x , 2 )
     return torch.sum(log_normal, dim)
 
-def kl_gaussian_sem(logits):
-    mu = logits
-    kl_div = mu * mu
+def kl_gaussian_sem(z_mean, z_logvar):
+    kl_div = torch.exp(2*z_logvar) - 2*z_logvar + z_mean * z_mean
     kl_sum = kl_div.sum()
-    return (kl_sum / (logits.size(0)))*0.5
+    return (kl_sum / z_mean.size(0))
