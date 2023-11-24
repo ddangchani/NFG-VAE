@@ -174,3 +174,19 @@ results/
 run_script
 
 .DS_Store
+
+# Latex file
+
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+*.pdf
+*.fls
+*.fdb_latexmk
+*.gz
+*.dvi
+*.fdb_latexmk

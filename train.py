@@ -92,7 +92,7 @@ parser.add_argument('--z_dims', type=int, default=1,
 parser.add_argument('--number_of_flows', type=int, default=5,
                     help='The number of HF flows: default 5.')
 parser.add_argument('--flow_type', type=str, default='IAF',
-                    help='The type of flows: "noflow"(DAG-GNN), "IAF", "HF"(Householder).')
+                    help='The type of flows: "DAGGNN", "IAF", "HF"(Householder).')
 parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
 
@@ -186,7 +186,7 @@ if args.flow_type == 'IAF':
     vae = VAE_IAF(args=args, adj_A=adj_A)
 elif args.flow_type == 'HF':
     vae = VAE_HF(args=args, adj_A=adj_A)
-elif args.flow_type == 'Noflow':
+elif args.flow_type == 'DAGGNN':
     vae = daggnn(args=args, adj_A=adj_A)
 else:
     raise ValueError('Invalid flow type.')
@@ -284,7 +284,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             print('nan error \n')
 
         # KL Divergence Loss
-        if args.flow_type == 'Noflow':
+        if args.flow_type == 'DAGGNN':
             loss_kl = kl_gaussian_sem(logits) # DAG-GNN
         else:
             loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims) # VAE_VPFLOWS
