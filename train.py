@@ -149,8 +149,6 @@ pickle.dump(X, open(data_file, 'wb'))
 if args.dependence_type == 1:
     cov_file = os.path.join(folder, 'cov.pkl')
     pickle.dump(cov, open(cov_file, 'wb'))
-    cov_prev_file = os.path.join(folder, 'cov_prev.pkl')
-    pickle.dump(cov_prev, open(cov_prev_file, 'wb'))
 
 feat_train = torch.FloatTensor(X).to(device)
 feat_valid = torch.FloatTensor(X).to(device)
@@ -284,10 +282,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             print('nan error \n')
 
         # KL Divergence Loss
-        if args.flow_type == 'DAGGNN':
-            loss_kl = kl_gaussian_sem(logits) # DAG-GNN
-        else:
-            loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims) # VAE_VPFLOWS
+        loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
 
         # Reconstruction Loss
         loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
