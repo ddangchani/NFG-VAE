@@ -8,7 +8,6 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataset import TensorDataset
-from torchviz import make_dot
 import math
 import numpy as np
 from utils import *
