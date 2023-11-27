@@ -45,7 +45,8 @@
 
 \renewcommand{\arraystretch}{1.1}
 
-\title{\textbf{NFG-VAE: Learning Semi-Markovian DAGs with Flow based VAE}}
+\title{
+\textbf{Learning Semi-Markovian DAGs with Flow based VAE}}
 
 \author{Dangchan Kim, Byungguk Kang, Jaeseok Kim, Minchan Kim}
 
@@ -81,7 +82,25 @@ Here is the introduction of VAEs
 
 \subsection{Normalizing Flows}
 
-Here is the introduction of normalizing flows
+Normalizing flows are a method of transforming a simple distribution into a complex distribution. \cite{rezende15normalizingflows} Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. Then, we can transform $z$ into $x$ by a series of invertible transformations $f_k$ as follows:
+\begin{equation}
+    x = f_K \circ f_{K-1} \circ \cdots \circ f_1(z)
+\end{equation}
+
+The probability density function of $x$ can be obtained by the change of variables formula:
+\begin{equation}
+    p(x) = p(z) \left| \det \left( \frac{\partial f_K \circ f_{K-1} \circ \cdots \circ f_1(z)}{\partial z} \right) \right|
+\end{equation}
+
+There are several types of normalizing flows, such as Householder flow \cite{tomczak2017householder}, planar flow \cite{rezende15normalizingflows}, etc. In this paper, we use the inverse autoregressive flow (IAF) \cite{kingma2016iaf}, especially linear IAF. The linear IAF is defined as follows:
+\begin{equation}
+    \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.
+\end{equation}
+Linear IAF is the simplest case of IAF, which transforms a multivariate Gaussian with diagonal covariance to a multivariate Gaussian with full covariance. The transformation is invertible and the determinant of the Jacobian is easily computable. To use linear IAF at VAE, we need to produce an extra output $\mathbf{L(x)}$ from the encoder network. The full-covariance Gaussian distribution is obtained by the following transformation:
+\begin{equation}
+    \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
+\end{equation}
+
 
 \section{Method}
 
@@ -89,17 +108,24 @@ Here is the introduction of normalizing flows
 
 Here is the introduction of our model
 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig/model.png}
+    \caption{Architecture of the proposed model.}
+    \label{diagram}
+\end{figure}
+
 \subsection{Learning}
 
 Here is the introduction (acyclicity constraint, etc.)
 
 \section{Experiment}
 
-Here is the introduction of our simulation study
+In this section, we conduct experiments on simulated data to evaluate the performance of our proposed method. We compare our method with the DAG-GNN \cite{yu2019daggnn} and NOTEARS \cite{zheng2018dags} with random graph datasets. We used a thresholding value of extracting graph as 0.3 which is the same as DAG-GNN and NOTEARS.
 
 \paragraph*{Datasets}
 
-Here is the introduction of our datasets
+
 
 \paragraph*{Evaluation}
 
