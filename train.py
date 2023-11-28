@@ -16,6 +16,8 @@ from data import *
 from loss import *
 from tqdm import tqdm
 
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 # 1. Arguments(argparse)
 
 parser = argparse.ArgumentParser(description='PyTorch Training')
