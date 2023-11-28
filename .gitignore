@@ -170,7 +170,10 @@ test.ipynb
 # results
 
 # run_script
-run_script
+*.ps1
+*.sh
+*.bat
+*.zsh
 
 .DS_Store
 
