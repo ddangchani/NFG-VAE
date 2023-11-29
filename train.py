@@ -283,7 +283,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             print('nan error \n')
 
         # KL Divergence Loss
-        loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
+        loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
 
         # Reconstruction Loss
         loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
