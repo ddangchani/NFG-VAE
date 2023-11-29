@@ -93,9 +93,11 @@ parser.add_argument('--z_dims', type=int, default=1,
 parser.add_argument('--number_of_flows', type=int, default=5,
                     help='The number of HF flows: default 5.')
 parser.add_argument('--flow_type', type=str, default='IAF',
-                    help='The type of flows: "DAGGNN", "IAF", "HF"(Householder).')
+                    help='The type of flows: "DAGGNN", "IAF", "HF"(Householder), "ccIAF"')
 parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
+parser.add_argument('--number_combination', type=int, default=3,
+                    help='The number of convex combinations: default 3.')
 
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
@@ -187,6 +189,8 @@ elif args.flow_type == 'HF':
     vae = VAE_HF(args=args, adj_A=adj_A)
 elif args.flow_type == 'DAGGNN':
     vae = daggnn(args=args, adj_A=adj_A)
+elif args.flow_type == 'ccIAF':
+    vae = VAE_ccIAF(args=args, adj_A=adj_A)
 else:
     raise ValueError('Invalid flow type.')
 
@@ -268,7 +272,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
 
         # Forward VAE
         z = {}
-        if args.flow_type == 'IAF':
+        if args.flow_type == 'IAF' or args.flow_type == 'ccIAF':
             z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model(data, rel_rec, rel_send)
         else:
             z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'] = model(data, rel_rec, rel_send)
