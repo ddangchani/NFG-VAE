@@ -138,6 +138,22 @@ class Decoder(nn.Module):
 
         return mat_z, out, x_mean, x_logvar
 
+class combination_L(nn.Module):
+    def __init__(self,args):
+        super(combination_L, self).__init__()
+        self.args = args
+
+    def forward(self, L, y):
+        '''
+        :param L: batch_size (B) x latent_size^2 * number_combination (L^2 * C)
+        :param y: batch_size (B) x number_combination (C)
+        :return: L_combination = y * L
+        '''
+        # calculate combination of Ls
+        L_tensor = L.view(-1, self.args.z_size**2, self.args.number_combination ) # resize to get B x L^2 x C
+        y = y.unsqueeze(1).expand(y.size(0), self.args.z_size**2, y.size(1)) # expand to get B x L^2 x C
+        L_combination = torch.sum( L_tensor * y, 2 ).squeeze()
+        return L_combination # B x L^2
 
 class VAE_IAF(nn.Module):
     def __init__(self, args, adj_A):
@@ -297,3 +313,52 @@ class VAE_HF(nn.Module):
         mat_z, out, x_mean, x_logvar = self.decoder(z[str(self.args.number_of_flows)], origin_A, Wa)
 
         return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z[str(self.args.number_of_flows)]
+
+class VAE_ccIAF(nn.Module):
+    def __init__(self, args, adj_A):
+        super(VAE_ccIAF, self).__init__()
+
+        self.args = args
+        self.encoder = Encoder(args, adj_A=adj_A)
+        self.decoder = Decoder(args)
+        self.flow = FlowLayer(args)
+        self.encoder_L = nn.Linear(args.z_dims, args.z_size * args.number_combination)
+        self.encoder_y = nn.Linear(args.z_size, args.number_combination)
+        self.softmax = nn.Softmax()
+        self.combination_L = combination_L(args)
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight.data)
+
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_() # standard deviation from log variance
+        if self.args.cuda: # generate random noise epsilon for reparameterization trick
+            eps = torch.cuda.FloatTensor(std.size()).normal_()
+        else:
+            eps = torch.FloatTensor(std.size()).normal_()
+
+        eps = Variable(eps)
+
+        return eps.mul(std).add_(mu) # return y sample
+
+    def forward(self, input, rel_rec, rel_send):
+        z = {}
+        # z ~ q(z|x) : encoder
+
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix
+
+        # reparemeterization trick
+        z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
+
+        # Flow layer
+        L = self.encoder_L(logits)
+        y = self.encoder_y(logits.squeeze(-1))
+        L_combination = self.combination_L(L, y)
+        z['1'] = self.flow(L_combination, z['0']) # z1 : after Flow
+
+        # z ~ p(x|z) : decoder
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
+
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'], L_combination
