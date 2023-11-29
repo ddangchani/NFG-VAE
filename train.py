@@ -98,7 +98,7 @@ parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
 parser.add_argument('--number_combination', type=int, default=3,
                     help='The number of convex combinations: default 3.')
-parser.add_argument('--loss_prevent', type=int, default=0,
+parser.add_argument('--loss_prevent', type=int, default=1,
                     help='Use loss that prevent overparametrization or not.')
 
 args = parser.parse_args()
