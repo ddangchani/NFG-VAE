@@ -46,7 +46,7 @@
 \renewcommand{\arraystretch}{1.1}
 
 \title{
-\textbf{Learning Semi-Markovian DAGs with Flow based VAE}}
+\textbf{Learning semi-Markovian DAGs with flow-based VAE}}
 
 \author{\normalsize\bfseries Dangchan Kim, Byungguk Kang, Jaeseok Kim, Minchan Kim}
 
@@ -59,9 +59,11 @@
 
 \section{Introduction}
 
-Directed acyclic graphs(DAGs) are commonly used to represent causal relationships between variables. However in many cases, recovering the causal structure from observational data is NP-hard problem. \cite{ChickeringNPhard} To overcome this problem, several methods have been proposed. NOTEARS \cite{zheng2018dags} is a method that learns the structure of DAGs by minimizing the continuous approximation of the discrete constraint. This method has made it possible to learn DAGs with continuous optimization problem.
+Directed acyclic graphs(DAGs) are commonly used to represent causal relationships between variables. However in many cases, recovering the causal structure from observational data is NP-hard problem. \cite{ChickeringNPhard} To overcome this problem, several methods have been proposed. NOTEARS \cite{zheng2018dags} is a method that learns the structure of DAGs by minimizing the continuous approximation of the discrete constraint. This method has made it possible to learn DAGs with continuous optimization problem. \\
 
-Based on the continuous acyclicty constraint, neural network based approach have been proposed. DAG-GNN \cite{yu2019daggnn} is a method that learns the structure of DAGs by using a neural network that takes the adjacency matrix of the graph as an additional input. Since the noise variable in the linear structural equation model can be interpreted as a latent variable, it uses a variational autoencoder(VAE) to learn DAGs.
+Based on the continuous acyclicty constraint, neural network based approach have been proposed. DAG-GNN \cite{yu2019daggnn} is a method that learns the structure of DAGs by using a neural network that takes the adjacency matrix of the graph as an additional input. Since the noise variable in the linear structural equation model can be interpreted as a latent variable, it uses a variational autoencoder(VAE) to learn DAGs.\\
+
+However, there are some cases where the noise matrix is not independent. For example, in the case of a linear structural equation model with correlated hidden variables, the noise matrix might have a dependency structure. In this case, the edges having correlation in the noise variable are considered to be bidirectional edges. Such models are called semi-Markovian. \cite{Shipster2006semimarkovian} Since the prior distribution of the noise variable is standard Gaussian at DAG-GNN, it is difficult to learn the structure of the semi-Markovian DAGs. Therefore, we propose a method to learn the full covariance matrix of the noise variable using a flow-based VAE.\\
 
 \section{Directed Acyclic Graphs and Mixed Graphs}
 \subsection{Directed Acyclic Graphs}
@@ -94,14 +96,20 @@ The probability density function of $x$ can be obtained by the change of variabl
     p(x) = p(z) \left| \det \left( \frac{\partial f_K \circ f_{K-1} \circ \cdots \circ f_1(z)}{\partial z} \right) \right|
 \end{equation}
 
+At VAE, typically the prior distribution of the latent variable $\bf z$ is assumed to be a standard Gaussian distribution, or a multivariate Gaussian distribution with diagonal covariance matrix. To have a more flexible prior distribution, we can use normalizing flows to transform the standard Gaussian distribution to a more complex distribution.\\
+
 There are several types of normalizing flows, such as Householder flow \cite{tomczak2017householder}, planar flow \cite{rezende15normalizingflows}, etc. In this paper, we use the inverse autoregressive flow (IAF) \cite{kingma2016iaf}, especially linear IAF. The linear IAF is defined as follows:
+
 \begin{equation}
     \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.
 \end{equation}
+
 The linear IAF is the simplest case of IAF, which transforms a multivariate Gaussian with diagonal covariance to a multivariate Gaussian with full covariance. The transformation is invertible and the determinant of the Jacobian is easily computable. To use linear IAF at VAE, we need to produce an extra output $\mathbf{L(x)}$ from the encoder network. The full-covariance Gaussian distribution is obtained by the following transformation:
+
 \begin{equation}
     \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
 \end{equation}
+
 Note if we restrict the $\mathbf{L(x)}$ to be a lower triangular matrix with diagonal elements of ones, then the log-determinant of the Jacobian is zero, which is so-called volume preserving normalizing flow. \cite{kingma2016iaf}\\
 
 With the linear IAF, the KL loss term can be written in closed form as follows:
@@ -112,7 +120,7 @@ With the linear IAF, the KL loss term can be written in closed form as follows:
         &= -\frac{1}{2}(\mathbf{z}_0 -\mu_\phi)^T\Sigma_\phi^{-1}(\mathbf{z}_0 -\mu_\phi) + \frac{1}{2}\mathbf{z}_T^T\mathbf{z}_T \\
     \end{aligned}
 \end{equation}
-where $\mu_\phi$ and $\Sigma_\phi$ are the mean vector and covariance matrix from the encoder network.\\
+where $\mu_\phi$ and $\Sigma_\phi$ are the mean vector and covariance matrix obtained from the encoder network.\\
 
 
 \section{Method}
