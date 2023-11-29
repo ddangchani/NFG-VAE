@@ -64,9 +64,9 @@ parser.add_argument('--seed', type=int, default=42,
                     help='Random seed.')
 parser.add_argument('--epochs', type=int, default= 300,
                     help='Number of epochs to train.')
-parser.add_argument('--batch-size', type=int, default = 100, # note: should be divisible by sample size, otherwise throw an error
+parser.add_argument('--batch-size', type=int, default = 200, # note: should be divisible by sample size, otherwise throw an error
                     help='Number of samples per batch.')
-parser.add_argument('--lr', type=float, default=3e-3,  # basline rate = 1e-3
+parser.add_argument('--lr', type=float, default=1e-3,  # basline rate = 1e-3
                     help='Initial learning rate.')
 parser.add_argument('--encoder-hidden', type=int, default=64,
                     help='Number of hidden units.')
@@ -76,9 +76,9 @@ parser.add_argument('--temp', type=float, default=0.5,
                     help='Temperature for Gumbel softmax.')
 parser.add_argument('--k_max_iter', type = int, default = 100,
                     help ='the max iteration number for searching lambda and c')
-parser.add_argument('--encoder-dropout', type=float, default=0.0,
+parser.add_argument('--encoder_dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
-parser.add_argument('--decoder-dropout', type=float, default=0.0,
+parser.add_argument('--decoder_dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--lr-decay', type=int, default=200,
                     help='After how epochs to decay LR by a factor of gamma.')
@@ -287,7 +287,10 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             print('nan error \n')
 
         # KL Divergence Loss
-        loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
+        if args.flow_type == 'IAF' or args.flow_type == 'ccIAF':
+            loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
+        else:
+            loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
 
         # Reconstruction Loss
         loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
