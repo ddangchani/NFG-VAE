@@ -321,7 +321,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         loss.backward()
         loss = optimizer.step()
 
-        origin_A.data = stau(origin_A.data, args.tau_A*args.lr)
+        origin_A.data = stau(origin_A.data, args.tau_A*args.lr) # update A
 
         if torch.sum(origin_A != origin_A):
             print('nan error\n')
@@ -401,6 +401,7 @@ if args.lagrange:
     k_max_iter = int(args.k_max_iter)
 else:
     k_max_iter = 1
+k_max_iter = int(args.k_max_iter)
 h_A_old = np.inf
 
 pbar = tqdm(range(args.epochs * k_max_iter), desc='Training')
