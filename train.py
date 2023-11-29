@@ -98,6 +98,8 @@ parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
 parser.add_argument('--number_combination', type=int, default=3,
                     help='The number of convex combinations: default 3.')
+parser.add_argument('--loss_prevent', type=int, default=0,
+                    help='Use loss that prevent overparametrization or not.')
 
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
@@ -287,7 +289,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             print('nan error \n')
 
         # KL Divergence Loss
-        if args.flow_type == 'IAF' or args.flow_type == 'ccIAF':
+        if args.loss_prevent == 0:
             loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
         else:
             loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)

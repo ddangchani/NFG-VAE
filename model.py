@@ -92,7 +92,7 @@ class Encoder(nn.Module):
         z_q_mean = self.encoder_mean(logits)
         z_q_logvar = self.encoder_logvar(logits)
         
-        return z_q_mean, z_q_logvar, h0, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
+        return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
 
 
 class Decoder(nn.Module):
@@ -167,7 +167,7 @@ class VAE_IAF(nn.Module):
         self.encoder = Encoder(args, adj_A=adj_A)
         self.decoder = Decoder(args)
         self.flow = FlowLayer(args)
-        self.encoder_L = nn.Linear(args.encoder_hidden, args.z_size)
+        self.encoder_L = nn.Linear(args.z_dims, args.z_size)
         self.softmax = nn.Softmax()
 
         for m in self.modules():
