@@ -37,7 +37,7 @@ class FlowLayer(nn.Module):
         LT = torch.mul(L_matrix, LTmask) + I # Lower triangular batches
         z_new = torch.bmm(LT, z) # B x L x L * B x L x 1 = B x L x 1
 
-        return z_new
+        return z_new, LT
 
 class Encoder(nn.Module):
     """
@@ -91,6 +91,11 @@ class Encoder(nn.Module):
         # For Flow layer
         z_q_mean = self.encoder_mean(logits)
         z_q_logvar = self.encoder_logvar(logits)
+        
+        if self.args.logits:
+            logits = logits # B * L * 1
+        else:
+            logits = h0 # B * L * 64
         
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
 
@@ -167,7 +172,11 @@ class VAE_IAF(nn.Module):
         self.encoder = Encoder(args, adj_A=adj_A)
         self.decoder = Decoder(args)
         self.flow = FlowLayer(args)
-        self.encoder_L = nn.Linear(args.z_dims, args.z_size)
+        if self.args.logits:
+            self.encoder_L = nn.Linear(args.z_dims, args.z_size)
+        else:
+            self.encoder_L = nn.Linear(args.encoder_hidden, args.z_size)
+        
         self.softmax = nn.Softmax()
 
         for m in self.modules():
@@ -197,12 +206,12 @@ class VAE_IAF(nn.Module):
 
         # Flow layer
         L = self.encoder_L(logits)
-        z['1'] = self.flow(L, z['0']) # z1 : after Flow
+        z['1'], LT = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
         mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
 
-        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'], L
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'], LT
 
 class daggnn(nn.Module):
     def __init__(self, args, adj_A):
