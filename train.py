@@ -15,6 +15,7 @@ from model import *
 from data import *
 from loss import *
 from tqdm import tqdm
+import pandas as pd
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -409,6 +410,10 @@ h_A_old = np.inf
 
 pbar = tqdm(range(args.epochs * k_max_iter), desc='Training')
 
+shd_curve = []
+nnd_curve = []
+fdr_curve = []
+
 print(args)
 
 with open(meta_file, 'w') as f:
@@ -435,8 +440,11 @@ try:
                     best_epoch = epoch
                     best_MSE_graph = graph
 
-            # print("Optimization Finished!")
-            # print("Best Epoch: {:04d}".format(best_epoch))
+            fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
+            shd_curve.append(shd)
+            nnd_curve.append(nnz)
+            fdr_curve.append(fdr)
+            # early stopping
             if ELBO_loss > 2 * best_ELBO_loss:
                 break
 
@@ -547,3 +555,7 @@ print("Total time elapsed: {:.4f}s".format(time.time() - t_total), file=log)
 if log is not None:
     print(folder)
     log.close()
+
+# Save curves
+df = pd.DataFrame({'SHD': shd_curve, 'predicted edges': nnd_curve, 'FDR': fdr_curve})
+df.to_csv(folder + '/metrics.csv', index=True)
