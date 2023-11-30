@@ -15,6 +15,7 @@ from model import *
 from data import *
 from loss import *
 from tqdm import tqdm
+import pandas as pd
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -100,10 +101,11 @@ parser.add_argument('--number_combination', type=int, default=3,
                     help='The number of convex combinations: default 3.')
 parser.add_argument('--loss_prevent', type=int, default=1,
                     help='Use loss that prevent overparametrization or not.')
+parser.add_argument('--logits', type=int, default=1,
+                    help='Link encoder_L after 2 hidden layers(1) or 1 layer(0).')
 
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
-print(args)
 
 # Device configuration (GPU or MPS or CPU)
 
@@ -146,12 +148,6 @@ model_file = os.path.join(folder, 'model.pt')
 log_file = os.path.join(folder, 'log.txt')
 log = open(log_file, 'w')
 
-# pickle.dump(args, open(meta_file, 'wb'))
-with open(meta_file, 'w') as f:
-    for arg in vars(args):
-        print(arg, getattr(args, arg), file=f)
-
-
 
 # 2.1. Generate DAG
 G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.seed)
@@ -168,8 +164,9 @@ pickle.dump(X, open(data_file, 'wb'))
 
 # save covariance matrix to file
 if args.dependence_type == 1:
-    cov_file = os.path.join(folder, 'cov.pkl')
-    pickle.dump(cov, open(cov_file, 'wb'))
+    cov_file = open(folder + '/cov.txt', 'wb')
+    np.savetxt(cov_file, cov, fmt='%.3f')
+    cov_file.closed
 
 feat_train = torch.FloatTensor(X).to(device)
 feat_valid = torch.FloatTensor(X).to(device)
@@ -295,12 +292,6 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         else:
             z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'] = model(data, rel_rec, rel_send)
 
-        """
-        in DAG-GNN
-        enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
-        dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
-        """
-
         if torch.sum(x_mean != x_mean):
             print('nan error \n')
 
@@ -314,7 +305,8 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
 
         # Sparsity loss
-        sparse_loss = args.tau_A * torch.sum(torch.abs(origin_A)) # L1 norm
+        l1_norm = torch.sum(torch.abs(origin_A))
+        sparse_loss = args.tau_A * l1_norm
 
         loss = loss_nll + loss_kl + sparse_loss
         
@@ -337,7 +329,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         loss.backward()
         loss = optimizer.step()
 
-        origin_A.data = stau(origin_A.data, args.tau_A*args.lr) # update A
+        origin_A.data = stau(origin_A.data, args.tau_A*args.lr) # soft-thresholding update
 
         if torch.sum(origin_A != origin_A):
             print('nan error\n')
@@ -372,7 +364,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
                     'kl_train' : '{:.4f}'.format(np.mean(kl_train)),
                     'ELBO_loss' : '{:.4f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
                     'shd_trian' : '{:.0f}'.format(np.mean(shd_train)),
-                    'nnz': '{:.0f}'.format(nnz)}
+                    'l1': '{:.1f}'.format(l1_norm.item())}
 
         if args.lagrange:
             to_print['h(A)'] = '{:.4f}'.format(h_A.item())
@@ -413,14 +405,20 @@ lambda_A = args.lambda_A # 추후 검토
 
 h_A_new = torch.tensor(1.)
 h_tol = args.h_tol
-if args.lagrange:
-    k_max_iter = int(args.k_max_iter)
-else:
-    k_max_iter = int(args.k_max_iter / 10)
-    args.tau_A = 0.01
+k_max_iter = int(args.k_max_iter)   
 h_A_old = np.inf
 
 pbar = tqdm(range(args.epochs * k_max_iter), desc='Training')
+
+shd_curve = []
+nnd_curve = []
+fdr_curve = []
+
+print(args)
+
+with open(meta_file, 'w') as f:
+    for arg in vars(args):
+        print(arg, getattr(args, arg), file=f)
 
 try:
     for step_k in range(k_max_iter):
@@ -442,8 +440,11 @@ try:
                     best_epoch = epoch
                     best_MSE_graph = graph
 
-            # print("Optimization Finished!")
-            # print("Best Epoch: {:04d}".format(best_epoch))
+            fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
+            shd_curve.append(shd)
+            nnd_curve.append(nnz)
+            fdr_curve.append(fdr)
+            # early stopping
             if ELBO_loss > 2 * best_ELBO_loss:
                 break
 
@@ -537,7 +538,15 @@ for line in matG2:
 f2.closed
 
 # LT to pickle
-pickle.dump(LT, open(folder + '/LT.pkl', 'wb'))
+if args.flow_type == 'IAF':
+    LT_numpy = LT.data.clone().numpy()
+    # avearage over batch
+    LT_numpy = np.mean(LT_numpy, axis=0)
+    # convert to Full covaraince matrix
+    LT_cov = LT_numpy @ LT_numpy.T
+    LT_file = open(folder + '/cov_pred.txt', 'w')
+    np.savetxt(LT_file, LT_cov, fmt='%.3f')
+    LT_file.closed
 
 # Total training time
 print("Optimization Finished!")
@@ -546,3 +555,7 @@ print("Total time elapsed: {:.4f}s".format(time.time() - t_total), file=log)
 if log is not None:
     print(folder)
     log.close()
+
+# Save curves
+df = pd.DataFrame({'SHD': shd_curve, 'predicted edges': nnd_curve, 'FDR': fdr_curve})
+df.to_csv(folder + '/metrics.csv', index=True)
