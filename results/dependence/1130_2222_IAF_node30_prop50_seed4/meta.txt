@@ -34,6 +34,6 @@ number_of_flows 5
 flow_type IAF
 lagrange 1
 number_combination 3
-loss_prevent 1
+loss_prevent 0
 logits 0
 z_size 30
