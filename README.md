@@ -25,7 +25,7 @@ python train.py --dependence_type=1 --dependence_prop=0.3 --node_size=20 --seed=
 
 - Non-Gaussian DAGs
 ```bash
-python train.py --dependence_type=0 --noise_dist='laplace' --node_size=20 --seed=123 --flow_type='IAF'
+python train.py --dependence_type=0 --graph_dist='laplace' --node_size=20 --seed=123 --flow_type='IAF'
 ```
 > Possible noise_dist : 'normal', 'uniform', 'exponential', 'laplace', 'gumbel'
 
