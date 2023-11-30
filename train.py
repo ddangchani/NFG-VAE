@@ -98,6 +98,8 @@ parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
 parser.add_argument('--number_combination', type=int, default=3,
                     help='The number of convex combinations: default 3.')
+parser.add_argument('--loss_prevent', type=int, default=1,
+                    help='Use loss that prevent overparametrization or not.')
 
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
@@ -206,7 +208,7 @@ def _h_A(A, m):
     h_A = torch.trace(expm_A) - m
     return h_A
 
-prox_plus = torch.nn.Threshold(0.,0.)
+prox_plus = torch.nn.Threshold(0.,0.) # ReLU function
 
 def stau(w, tau):
     w1 = prox_plus(torch.abs(w)-tau)
@@ -287,16 +289,16 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             print('nan error \n')
 
         # KL Divergence Loss
-        if args.flow_type == 'IAF' or args.flow_type == 'ccIAF':
-            loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
-        else:
+        if args.loss_prevent:
             loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
+        else:
+            loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
 
         # Reconstruction Loss
         loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
 
-        # add A loss
-        sparse_loss = args.tau_A * torch.sum(torch.abs(origin_A))
+        # Sparsity loss
+        sparse_loss = args.tau_A * torch.sum(torch.abs(origin_A)) # L1 norm
 
         loss = loss_nll + loss_kl + sparse_loss
         
@@ -319,7 +321,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         loss.backward()
         loss = optimizer.step()
 
-        origin_A.data = stau(origin_A.data, args.tau_A*args.lr)
+        origin_A.data = stau(origin_A.data, args.tau_A*args.lr) # update A
 
         if torch.sum(origin_A != origin_A):
             print('nan error\n')
@@ -349,41 +351,18 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             'shd_trian: {:.10f}'.format(np.mean(shd_train)),
             'time: {:.4f}s'.format(time.time() - t))
     
-        if np.mean(nll_val) < best_val_loss:
-            torch.save(model.state_dict(), model_file)
-            print('Best model so far, saving...')
-            print('Epoch: {:04d}'.format(epoch),
-                'nll_train: {:.10f}'.format(np.mean(nll_train)),
-                'kl_train: {:.10f}'.format(np.mean(kl_train)),
-                'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
-                'mse_train: {:.10f}'.format(np.mean(mse_train)),
-                'shd_trian: {:.10f}'.format(np.mean(shd_train)),
-                'time: {:.4f}s'.format(time.time() - t), file=log)
-            log.flush()
-    
     else:
         to_print = {'nll_train' : '{:.4f}'.format(np.mean(nll_train)),
                     'kl_train' : '{:.4f}'.format(np.mean(kl_train)),
                     'ELBO_loss' : '{:.4f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
-                    'shd_trian' : '{:.4f}'.format(np.mean(shd_train))}
+                    'shd_trian' : '{:.0f}'.format(np.mean(shd_train)),
+                    'nnz': '{:.0f}'.format(nnz)}
 
         if args.lagrange:
-            to_print['h_A'] = '{:.4f}'.format(h_A.item())
+            to_print['h(A)'] = '{:.4f}'.format(h_A.item())
         
         pbar.set_description('Epoch: {:04d}'.format(epoch))
         pbar.set_postfix(to_print)
-    
-        if nll_val and (np.mean(nll_val) < best_val_loss):
-            torch.save(model.state_dict(), model_file)
-            pbar.write('Best model so far, saving...')
-            pbar.write('Epoch: {:04d}'.format(epoch) +
-                'nll_train: {:.10f}'.format(np.mean(nll_train)) +
-                'kl_train: {:.10f}'.format(np.mean(kl_train)) +
-                'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)) +
-                'mse_train: {:.10f}'.format(np.mean(mse_train)) +
-                'shd_trian: {:.10f}'.format(np.mean(shd_train)) +
-                'time: {:.4f}s'.format(time.time() - t))
-            log.flush()
 
         pbar.update(1)
 
@@ -418,6 +397,10 @@ lambda_A = args.lambda_A # 추후 검토
 
 h_A_new = torch.tensor(1.)
 h_tol = args.h_tol
+if args.lagrange:
+    k_max_iter = int(args.k_max_iter)
+else:
+    k_max_iter = 1
 k_max_iter = int(args.k_max_iter)
 h_A_old = np.inf
 
@@ -471,18 +454,15 @@ try:
 
 except KeyboardInterrupt:
     # print the best anway
-    print(best_ELBO_graph)
-    print(nx.to_numpy_array(G))
+
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_ELBO_graph))
     print('Best ELBO Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
-    print(best_NLL_graph)
-    print(nx.to_numpy_array(G))
+
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_NLL_graph))
     print('Best NLL Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
-    print(best_MSE_graph)
-    print(nx.to_numpy_array(G))
+
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_MSE_graph))
     print('Best MSE Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
