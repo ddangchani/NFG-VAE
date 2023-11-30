@@ -460,7 +460,7 @@ try:
         h_A_old = h_A_new.item()
         lambda_A += c_A * h_A_new.item()
 
-        if h_A_new.item() <= h_tol:
+        if h_A_new.item() <= h_tol: # when h(A) is close enough to 0
             break
 
     print("Best Epoch: {:04d}".format(best_epoch), file=log)
