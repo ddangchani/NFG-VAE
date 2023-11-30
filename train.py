@@ -118,27 +118,40 @@ torch.manual_seed(args.seed)
 # Folder to save the results, models, dataset
 
 now = datetime.datetime.now().strftime('%m%d_%H%M')
-if args.dependence_type == 1:
-    if args.lagrange:
-        folder = f'results/dependence/{now}_{args.flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
-    else:
-        folder = f'results/dependence/{now}_{args.flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}_noL'
+
+if args.flow_type in ['IAF', 'DAGGNN']:
+    flow_type = args.flow_type
+elif args.flow_type == 'HF':
+    flow_type = f'{args.number_of_flows}{args.flow_type}'
+elif args.flow_type == 'ccIAF':
+    flow_type = f'{args.number_combination}{args.flow_type}'
 else:
-    folder = f'results/independence/{args.graph_dist}/{now}_{args.flow_type}_node{args.node_size}_seed{args.seed}'
+    raise ValueError(f'Invalid flow type: {args.flow_type}.')
+
+if args.dependence_type == 1:
+    folder = f'results/dependence/{now}_{flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
+else:
+    folder = f'results/independence/{args.graph_dist}/{now}_{flow_type}_node{args.node_size}_seed{args.seed}'
+
+if not args.lagrange:
+    folder += '_noL'
 
 if not os.path.exists(folder):
     os.makedirs(folder)
 
 # Save the arguments
-meta_file = os.path.join(folder, 'meta.pkl')
+meta_file = os.path.join(folder, 'meta.txt')
 model_file = os.path.join(folder, 'model.pt')
 
 log_file = os.path.join(folder, 'log.txt')
 log = open(log_file, 'w')
 
-pickle.dump(args, open(meta_file, 'wb'))
+# pickle.dump(args, open(meta_file, 'wb'))
+with open(meta_file, 'w') as f:
+    for arg in vars(args):
+        print(arg, getattr(args, arg), file=f)
 
-# 2. Load Data
+
 
 # 2.1. Generate DAG
 G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.seed)
@@ -403,8 +416,8 @@ h_tol = args.h_tol
 if args.lagrange:
     k_max_iter = int(args.k_max_iter)
 else:
-    k_max_iter = 1
-k_max_iter = int(args.k_max_iter)
+    k_max_iter = int(args.k_max_iter / 10)
+    args.tau_A = 0.01
 h_A_old = np.inf
 
 pbar = tqdm(range(args.epochs * k_max_iter), desc='Training')
@@ -461,10 +474,8 @@ except KeyboardInterrupt:
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_ELBO_graph))
     print('Best ELBO Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
-
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_NLL_graph))
     print('Best NLL Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
-
 
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_MSE_graph))
     print('Best MSE Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
@@ -518,6 +529,12 @@ matG1 = np.matrix(origin_A.data.clone().numpy())
 for line in matG1:
     np.savetxt(f1, line, fmt='%.5f')
 f1.closed
+
+f2 = open(folder + '/best_ELBO_G.txt', 'w')
+matG2 = np.matrix(best_ELBO_graph)
+for line in matG2:
+    np.savetxt(f2, line, fmt='%.5f')
+f2.closed
 
 # LT to pickle
 pickle.dump(LT, open(folder + '/LT.pkl', 'wb'))
