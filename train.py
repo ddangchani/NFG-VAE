@@ -15,6 +15,7 @@ from model import *
 from data import *
 from loss import *
 from tqdm import tqdm
+import pandas as pd
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -64,9 +65,9 @@ parser.add_argument('--seed', type=int, default=42,
                     help='Random seed.')
 parser.add_argument('--epochs', type=int, default= 300,
                     help='Number of epochs to train.')
-parser.add_argument('--batch-size', type=int, default = 100, # note: should be divisible by sample size, otherwise throw an error
+parser.add_argument('--batch-size', type=int, default = 200, # note: should be divisible by sample size, otherwise throw an error
                     help='Number of samples per batch.')
-parser.add_argument('--lr', type=float, default=3e-3,  # basline rate = 1e-3
+parser.add_argument('--lr', type=float, default=1e-3,  # basline rate = 1e-3
                     help='Initial learning rate.')
 parser.add_argument('--encoder-hidden', type=int, default=64,
                     help='Number of hidden units.')
@@ -76,9 +77,9 @@ parser.add_argument('--temp', type=float, default=0.5,
                     help='Temperature for Gumbel softmax.')
 parser.add_argument('--k_max_iter', type = int, default = 100,
                     help ='the max iteration number for searching lambda and c')
-parser.add_argument('--encoder-dropout', type=float, default=0.0,
+parser.add_argument('--encoder_dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
-parser.add_argument('--decoder-dropout', type=float, default=0.0,
+parser.add_argument('--decoder_dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--lr-decay', type=int, default=200,
                     help='After how epochs to decay LR by a factor of gamma.')
@@ -98,10 +99,13 @@ parser.add_argument('--lagrange', type=int, default=1,
                     help='Use lagrange multipliers or not.')
 parser.add_argument('--number_combination', type=int, default=3,
                     help='The number of convex combinations: default 3.')
+parser.add_argument('--loss_prevent', type=int, default=1,
+                    help='Use loss that prevent overparametrization or not.')
+parser.add_argument('--logits', type=int, default=1,
+                    help='Link encoder_L after 2 hidden layers(1) or 1 layer(0).')
 
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
-print(args)
 
 # Device configuration (GPU or MPS or CPU)
 
@@ -116,27 +120,39 @@ torch.manual_seed(args.seed)
 # Folder to save the results, models, dataset
 
 now = datetime.datetime.now().strftime('%m%d_%H%M')
-if args.dependence_type == 1:
-    folder = f'results/dependence/{now}_{args.flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
+
+if args.flow_type in ['IAF', 'DAGGNN']:
+    flow_type = args.flow_type
+elif args.flow_type == 'HF':
+    flow_type = f'{args.number_of_flows}{args.flow_type}'
+elif args.flow_type == 'ccIAF':
+    flow_type = f'{args.number_combination}{args.flow_type}'
 else:
-    folder = f'results/independence/{args.graph_dist}/{now}_{args.flow_type}_node{args.node_size}_seed{args.seed}'
+    raise ValueError(f'Invalid flow type: {args.flow_type}.')
+
+if args.dependence_type == 1:
+    folder = f'results/dependence/{now}_{flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
+else:
+    folder = f'results/independence/{args.graph_dist}/{now}_{flow_type}_node{args.node_size}_seed{args.seed}'
+
+if not args.lagrange:
+    folder += '_noL'
 
 if not os.path.exists(folder):
     os.makedirs(folder)
 
 # Save the arguments
-meta_file = os.path.join(folder, 'meta.pkl')
+meta_file = os.path.join(folder, 'meta.txt')
 model_file = os.path.join(folder, 'model.pt')
 
 log_file = os.path.join(folder, 'log.txt')
 log = open(log_file, 'w')
 
-pickle.dump(args, open(meta_file, 'wb'))
-
-# 2. Load Data
 
 # 2.1. Generate DAG
 G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.seed)
+
+G_DAG = nx.to_numpy_array(G)
 
 # 2.2. Generate Data
 if args.dependence_type == 1:
@@ -150,8 +166,9 @@ pickle.dump(X, open(data_file, 'wb'))
 
 # save covariance matrix to file
 if args.dependence_type == 1:
-    cov_file = os.path.join(folder, 'cov.pkl')
-    pickle.dump(cov, open(cov_file, 'wb'))
+    cov_file = open(folder + '/cov.txt', 'wb')
+    np.savetxt(cov_file, cov, fmt='%.3f')
+    cov_file.closed
 
 feat_train = torch.FloatTensor(X).to(device)
 feat_valid = torch.FloatTensor(X).to(device)
@@ -206,7 +223,7 @@ def _h_A(A, m):
     h_A = torch.trace(expm_A) - m
     return h_A
 
-prox_plus = torch.nn.Threshold(0.,0.)
+prox_plus = torch.nn.Threshold(0.,0.) # ReLU function
 
 def stau(w, tau):
     w1 = prox_plus(torch.abs(w)-tau)
@@ -277,23 +294,21 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         else:
             z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'] = model(data, rel_rec, rel_send)
 
-        """
-        in DAG-GNN
-        enc_x, logits, origin_A, adj_A_tilt_encoder, z_gap, z_positive, myA, Wa = encoder(data, rel_rec, rel_send)  # logits is of size: [num_sims, z_dims]
-        dec_x, output, adj_A_tilt_decoder = decoder(data, edges, args.data_variable_size * args.x_dims, rel_rec, rel_send, origin_A, adj_A_tilt_encoder, Wa)
-        """
-
         if torch.sum(x_mean != x_mean):
             print('nan error \n')
 
         # KL Divergence Loss
-        loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
+        if args.loss_prevent:
+            loss_kl = calculate_kl_prevent(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
+        else:
+            loss_kl = calculate_kl_loss(z['0'], z['1'], z_q_mean, z_q_logvar, args.z_dims)
 
         # Reconstruction Loss
         loss_nll = calculate_reconstruction_loss(x_mean, data, x_logvar)
 
-        # add A loss
-        sparse_loss = args.tau_A * torch.sum(torch.abs(origin_A))
+        # Sparsity loss
+        l1_norm = torch.sum(torch.abs(origin_A))
+        sparse_loss = args.tau_A * l1_norm
 
         loss = loss_nll + loss_kl + sparse_loss
         
@@ -316,7 +331,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         loss.backward()
         loss = optimizer.step()
 
-        origin_A.data = stau(origin_A.data, args.tau_A*args.lr)
+        origin_A.data = stau(origin_A.data, args.tau_A*args.lr) # soft-thresholding update
 
         if torch.sum(origin_A != origin_A):
             print('nan error\n')
@@ -346,41 +361,18 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
             'shd_trian: {:.10f}'.format(np.mean(shd_train)),
             'time: {:.4f}s'.format(time.time() - t))
     
-        if np.mean(nll_val) < best_val_loss:
-            torch.save(model.state_dict(), model_file)
-            print('Best model so far, saving...')
-            print('Epoch: {:04d}'.format(epoch),
-                'nll_train: {:.10f}'.format(np.mean(nll_train)),
-                'kl_train: {:.10f}'.format(np.mean(kl_train)),
-                'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
-                'mse_train: {:.10f}'.format(np.mean(mse_train)),
-                'shd_trian: {:.10f}'.format(np.mean(shd_train)),
-                'time: {:.4f}s'.format(time.time() - t), file=log)
-            log.flush()
-    
     else:
         to_print = {'nll_train' : '{:.4f}'.format(np.mean(nll_train)),
                     'kl_train' : '{:.4f}'.format(np.mean(kl_train)),
                     'ELBO_loss' : '{:.4f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
-                    'shd_trian' : '{:.4f}'.format(np.mean(shd_train))}
+                    'shd_trian' : '{:.0f}'.format(np.mean(shd_train)),
+                    'l1': '{:.1f}'.format(l1_norm.item())}
 
         if args.lagrange:
-            to_print['h_A'] = '{:.4f}'.format(h_A.item())
+            to_print['h(A)'] = '{:.4f}'.format(h_A.item())
         
         pbar.set_description('Epoch: {:04d}'.format(epoch))
         pbar.set_postfix(to_print)
-    
-        if nll_val and (np.mean(nll_val) < best_val_loss):
-            torch.save(model.state_dict(), model_file)
-            pbar.write('Best model so far, saving...')
-            pbar.write('Epoch: {:04d}'.format(epoch) +
-                'nll_train: {:.10f}'.format(np.mean(nll_train)) +
-                'kl_train: {:.10f}'.format(np.mean(kl_train)) +
-                'ELBO_loss: {:.10f}'.format(np.mean(kl_train)  + np.mean(nll_train)) +
-                'mse_train: {:.10f}'.format(np.mean(mse_train)) +
-                'shd_trian: {:.10f}'.format(np.mean(shd_train)) +
-                'time: {:.4f}s'.format(time.time() - t))
-            log.flush()
 
         pbar.update(1)
 
@@ -415,10 +407,20 @@ lambda_A = args.lambda_A # 추후 검토
 
 h_A_new = torch.tensor(1.)
 h_tol = args.h_tol
-k_max_iter = int(args.k_max_iter)
+k_max_iter = int(args.k_max_iter)   
 h_A_old = np.inf
 
 pbar = tqdm(range(args.epochs * k_max_iter), desc='Training')
+
+shd_curve = []
+nnd_curve = []
+fdr_curve = []
+
+print(args)
+
+with open(meta_file, 'w') as f:
+    for arg in vars(args):
+        print(arg, getattr(args, arg), file=f)
 
 try:
     for step_k in range(k_max_iter):
@@ -440,8 +442,11 @@ try:
                     best_epoch = epoch
                     best_MSE_graph = graph
 
-            # print("Optimization Finished!")
-            # print("Best Epoch: {:04d}".format(best_epoch))
+            fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
+            shd_curve.append(shd)
+            nnd_curve.append(nnz)
+            fdr_curve.append(fdr)
+            # early stopping
             if ELBO_loss > 2 * best_ELBO_loss:
                 break
 
@@ -458,7 +463,7 @@ try:
         h_A_old = h_A_new.item()
         lambda_A += c_A * h_A_new.item()
 
-        if h_A_new.item() <= h_tol:
+        if h_A_new.item() <= h_tol: # when h(A) is close enough to 0
             break
 
     print("Best Epoch: {:04d}".format(best_epoch), file=log)
@@ -468,18 +473,13 @@ try:
 
 except KeyboardInterrupt:
     # print the best anway
-    print(best_ELBO_graph)
-    print(nx.to_numpy_array(G))
+
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_ELBO_graph))
     print('Best ELBO Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
-    print(best_NLL_graph)
-    print(nx.to_numpy_array(G))
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_NLL_graph))
     print('Best NLL Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
-    print(best_MSE_graph)
-    print(nx.to_numpy_array(G))
     fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(best_MSE_graph))
     print('Best MSE Graph Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
 
@@ -533,8 +533,28 @@ for line in matG1:
     np.savetxt(f1, line, fmt='%.5f')
 f1.closed
 
+f2 = open(folder + '/best_ELBO_G.txt', 'w')
+matG2 = np.matrix(best_ELBO_graph)
+for line in matG2:
+    np.savetxt(f2, line, fmt='%.5f')
+f2.closed
+
+f3 = open(folder + '/trueG_DAG.txt', 'w')
+matG3 = np.matrix(G_DAG)
+for line in matG3:
+    np.savetxt(f3, line, fmt='%.5f')
+f3.closed
+
 # LT to pickle
-pickle.dump(LT, open(folder + '/LT.pkl', 'wb'))
+if args.flow_type == 'IAF':
+    LT_numpy = LT.data.clone().numpy()
+    # avearage over batch
+    LT_numpy = np.mean(LT_numpy, axis=0)
+    # convert to Full covaraince matrix
+    LT_cov = LT_numpy @ LT_numpy.T
+    LT_file = open(folder + '/cov_pred.txt', 'w')
+    np.savetxt(LT_file, LT_cov, fmt='%.3f')
+    LT_file.closed
 
 # Total training time
 print("Optimization Finished!")
@@ -543,3 +563,7 @@ print("Total time elapsed: {:.4f}s".format(time.time() - t_total), file=log)
 if log is not None:
     print(folder)
     log.close()
+
+# Save curves
+df = pd.DataFrame({'SHD': shd_curve, 'predicted edges': nnd_curve, 'FDR': fdr_curve})
+df.to_csv(folder + '/metrics.csv', index=True)

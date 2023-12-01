@@ -1,0 +1,13 @@
+Best ELBO Graph Accuracy: fdr 0.43243243243243246  tpr  0.49411764705882355  fpr  0.028070175438596492 shd 46 nnz 74
+Best NLL Graph Accuracy: fdr 0.43283582089552236  tpr  0.4470588235294118  fpr  0.02543859649122807 shd 47 nnz 67
+Best MSE Graph Accuracy: fdr 0.43283582089552236  tpr  0.4470588235294118  fpr  0.02543859649122807 shd 47 nnz 67
+threshold 0.1, Accuracy: fdr 0.966  tpr  1.0  fpr  2.1184210526315788 shd 1247 nnz 2500
+threshold 0.2, Accuracy: fdr 0.966  tpr  1.0  fpr  2.1184210526315788 shd 1247 nnz 2500
+threshold 0.3, Accuracy: fdr 0.966  tpr  1.0  fpr  2.1184210526315788 shd 1247 nnz 2500
+Best ELBO Graph Accuracy: fdr 0.43243243243243246  tpr  0.49411764705882355  fpr  0.028070175438596492 shd 46 nnz 74
+Best NLL Graph Accuracy: fdr 0.43283582089552236  tpr  0.4470588235294118  fpr  0.02543859649122807 shd 47 nnz 67
+Best MSE Graph Accuracy: fdr 0.43283582089552236  tpr  0.4470588235294118  fpr  0.02543859649122807 shd 47 nnz 67
+threshold 0.1, Accuracy: fdr 0.966  tpr  1.0  fpr  2.1184210526315788 shd 1247 nnz 2500
+threshold 0.2, Accuracy: fdr 0.966  tpr  1.0  fpr  2.1184210526315788 shd 1247 nnz 2500
+threshold 0.3, Accuracy: fdr 0.966  tpr  1.0  fpr  2.1184210526315788 shd 1247 nnz 2500
+Total time elapsed: 1936.9311s
