@@ -54,16 +54,16 @@
 \maketitle
 
 \begin{abstract}
-    We propose a method to learn the structure of a semi-Markovian directed acyclic graph, i.e. mixed graph with directed and undirected edges using a flow-based variational autoencoder. The proposed method is based on the assumption that the noise matrix in the linear structural equation model is a latent variable. In order to learn the structure of the mixed graph, we used an inverse autoregressive flow to approximate the dependency structure of the noise matrix and their prior distribution. We conducted experiments on simulated data adjusting the number of nodes and the proportion of bidirectional edges. The code is available at \url{https://github.io/ddangchani/NFG-VAE}.
+    We propose a method to learn the structure of a semi-Markovian directed acyclic graph, which is a mixed graph containing both directed and bidirectional edges, using a flow-based variational autoencoder. The proposed method is based on the assumption that noise variables in the linear structural equation model can be considered as latent variables. To learn the structure of the mixed graph, we employ an inverse autoregressive flow to approximate the dependency structure of the noise variables and its prior distribution. We conducted experiments on simulated data by adjusting the number of nodes and the proportion of bidirectional edges. The code is available at \url{https://github.io/ddangchani/NFG-VAE}.
 \end{abstract}
 
 \section{Introduction}
 
-Directed acyclic graphs(DAGs) are commonly used to represent causal relationships between variables. However in many cases, recovering the causal structure from observational data is NP-hard problem. \cite{ChickeringNPhard} To overcome this problem, several methods have been proposed. NOTEARS \cite{zheng2018dags} is a method that learns the structure of DAGs by minimizing the continuous approximation of the discrete constraint. This method has made it possible to learn DAGs with continuous optimization problem. \\
+Directed acyclic graphs (DAGs) are commonly used to represent causal relationships between variables \cite{pearl_2009}. However, recovering the causal structure from observational data is an NP-hard problem \cite{ChickeringNPhard}. To overcome this problem, several methods have been proposed. NOTEARS \cite{zheng2018dags} is a method that learns the structure of DAGs by minimizing the continuous approximation of the discrete constraint, enabling the learning of DAGs through continuous optimization.\\
 
-Based on the continuous acyclicty constraint, neural network based approach have been proposed. DAG-GNN \cite{yu2019daggnn} is a method that learns the structure of DAGs by using a neural network that takes the adjacency matrix of the graph as an additional input. Since the noise variable in the linear structural equation model can be interpreted as a latent variable, it uses a variational autoencoder(VAE) to learn DAGs.\\
+Based on the continuous acyclicity constraint neural network-based approaches known as graph neural networks, have been proposed. \cite{yu2019daggnn,li2020dirichlet,kipf2016variational,zhang2019dvae} The most representative model would be DAG-GNN \cite{yu2019daggnn}, a method that learns the structure of DAGs by using a neural network that takes the adjacency matrix of the graph as an additional input. It utilizes a variational autoencoder (VAE) to learn DAGs by interpreting the noise variable in the linear structural equation model as a latent variable.\\
 
-However, there are some cases where the noise matrix is not independent. For example, in the case of a linear structural equation model with correlated hidden variables, the noise matrix might have a dependency structure. In this case, the edges having correlation in the noise variable are considered to be bidirectional edges. Such models are called semi-Markovian. \cite{Shipster2006semimarkovian} Since the prior distribution of the noise variable is standard Gaussian at DAG-GNN, it is difficult to learn the structure of the semi-Markovian DAGs. Therefore, we propose a method to learn the full covariance matrix of the noise variable using a flow-based VAE.\\
+However, in some cases, the noise variables may not be independent. For example, in a linear structural equation model with correlated hidden variables, the noise variables may exhibit a dependency structure. In such cases, edges with correlation in the noise variable are considered bidirectional edges, and these models are referred to as semi-Markovian \cite{Shipster2006semimarkovian}. Since the prior distribution of the noise variable is assumed to be a standard Gaussian in DAG-GNN or other graph neural networks, it becomes challenging to learn the structure of semi-Markovian DAGs. Therefore, we propose a method to learn the full covariance matrix of the noise variable using a flow-based VAE.
 
 \section{Directed Acyclic Graphs and Mixed Graphs}
 \subsection{Directed Acyclic Graphs}
@@ -86,17 +86,17 @@ Here is the introduction of VAEs
 
 \subsection{Normalizing Flows}
 
-Normalizing flows are a method of transforming a simple distribution into a complex distribution. \cite{rezende15normalizingflows} Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. Then, we can transform $z$ into $x$ by a series of invertible transformations $f_k$ as follows:
+Normalizing flows are a method of transforming a simple distribution into a complex distribution \cite{rezende15normalizingflows}. Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. We can transform $z$ into $x$ using a series of invertible transformations $\{f_k\}_{k=1,\ldots,T}$ as follows:
 \begin{equation}
-    x = f_K \circ f_{K-1} \circ \cdots \circ f_1(z)
+    x = f_T \circ f_{T-1} \circ \cdots \circ f_1(z)
 \end{equation}
 
 The probability density function of $x$ can be obtained by the change of variables formula:
 \begin{equation}
-    p(x) = p(z) \left| \det \left( \frac{\partial f_K \circ f_{K-1} \circ \cdots \circ f_1(z)}{\partial z} \right) \right|
+    p(x) = p(z) \left| \det \left( \frac{\partial f_T \circ f_{T-1} \circ \cdots \circ f_1(z)}{\partial z} \right) \right|
 \end{equation}
 
-At VAE, typically the prior distribution of the latent variable $\bf z$ is assumed to be a standard Gaussian distribution, or a multivariate Gaussian distribution with diagonal covariance matrix. To have a more flexible prior distribution, we can use normalizing flows to transform the standard Gaussian distribution to a more complex distribution.\\
+In VAE, the prior distribution of the latent variable $\mathbf{z}$ is typically assumed to be a standard Gaussian distribution or a multivariate Gaussian distribution with a diagonal covariance matrix. \cite{kingma2013auto} However, to employ a more flexible prior distribution, we can utilize normalizing flows to transform the standard Gaussian distribution into a more complex distribution. This allows us to capture richer and more intricate patterns in the latent space, such as correlation between latent variables.\\
 
 There are several types of normalizing flows, such as Householder flow \cite{tomczak2017householder}, planar flow \cite{rezende15normalizingflows}, etc. In this paper, we use the inverse autoregressive flow (IAF) \cite{kingma2016iaf}, especially linear IAF. The linear IAF is defined as follows:
 
@@ -120,14 +120,14 @@ With the linear IAF, the KL loss term can be written in closed form as follows:
         &= -\frac{1}{2}(\mathbf{z}_0 -\mu_\phi)^T\Sigma_\phi^{-1}(\mathbf{z}_0 -\mu_\phi) + \frac{1}{2}\mathbf{z}_T^T\mathbf{z}_T \\
     \end{aligned}
 \end{equation}
-where $\mu_\phi$ and $\Sigma_\phi$ are the mean vector and covariance matrix obtained from the encoder network.\\
 
+where $\mu_\phi$ and $\Sigma_\phi$ are the mean vector and covariance matrix obtained from the encoder network.\\
 
 \section{Method}
 
 \subsection{Model}
 
-Here is the introduction of our model
+The overall architecture of our model is shown in Figure \ref*{diagram}. The encoder network takes the input data matrix $\mathbf{X}\in \mathbb{R}^{B \times m \times 1}$ and adjacency matrix $\mathbf{A}\in \mathbb{R}^{m \times m}$ as inputs and outputs the mean vector $\mu_\phi$ and (log) variance $\sigma_\phi$ of the latent variable $\mathbf{z}_0$. The decoder network takes the latent variable $\mathbf{z}_T$ and the same adjacency matrix $\mathbf{A}$ used at encoder as inputs and outputs the mean vector $\mu_\theta$ and covariance matrix $\Sigma_\theta$ of the reconstructed data matrix $\mathbf{X}$. Also, during the training process the decoder variance $\sigma_\theta$ is fixed to 1. For the size of the hidden layer, we use 64.
 
 \begin{figure}
     \centering
@@ -138,15 +138,25 @@ Here is the introduction of our model
 
 \subsection{Learning}
 
-Here is the introduction (acyclicity constraint, etc.)
+Our model aims to learn the adjacency matrix of the directed acyclic graph. Instead of regarding the mixed graph as a cyclic graph, we consider them as DAG structure with correlated noise variables. Thus we can use the same optimization procedure as DAG-GNN, which uses the acyclicity constraint as a continuous approximation of the discrete constraint. The optimization procedure is minimizing the following loss function:
+
+\begin{equation}
+    \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau_A \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
+\end{equation}
+
+The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix. The third and fourth terms are the augmented Lagrangian terms. Since larger value of $c$ makes the acyclicity constraint to zero, the training process is done by gradually increasing the value of $c$. \cite{yu2019daggnn}\\
+
+
+
+
 
 \section{Experiment}
 
 In this section, we conduct experiments on simulated data to evaluate the performance of our proposed method. We compare our method with the DAG-GNN \cite{yu2019daggnn} with random graph datasets. We used a thresholding value of extracting graph as 0.3 which is the same value used at DAG-GNN and NOTEARS.\\ 
 
-\paragraph*{Datasets} Random graph datasets are generated by the following procedure. First, we generate a random directed acyclic graph with Erdős–Rényi model. In Section 5.1 we conduct experiment where the noise matrix follows multivariate Gaussian with non-diagonal covariance matrix. We randomly choose edges of given proportion and make them bidirectional. Then, we generate a corresponding random covariance matrix and generate multivariate Gaussian data with the covariance matrix. We generate 5000 samples for each graph. For the size of the graph, we used 10, 20, 30, 50 nodes. For the proportion of bidirectional edges, we used 0, 0.1, 0.3, 0.5, 0.8. In Section 5.2, we considered the case where the noise matrix follows not only independent Gaussian but also independent Laplace and exponential.\\
+\paragraph*{Datasets} Random graph datasets are generated using the following procedure. First, we generate a random directed acyclic graph using the Erdős–Rényi model. In Section 5.1, we conduct experiments where the noise variables follows a multivariate Gaussian distribution with a non-diagonal covariance matrix. We randomly select a given proportion of edges and make them bidirectional. Then, we generate a corresponding random covariance matrix and generate multivariate Gaussian data using that covariance matrix. We generate 5000 samples for each graph. For the size of the graph, we use 10, 20, 30, and 50 nodes. For the proportion of bidirectional edges, we use 0, 0.1, 0.3, 0.5, and 0.8. In Section 5.2, we consider the case where the noise variables follow not only an independent Gaussian distribution but also independent Laplace and exponential distributions.\\
 
-\paragraph*{Evaluation} We evaluate the performance of our method with SHD(Structural Hamming Distance) and FDR(False Discovery Rate). SHD is the number of edge additions, deletions, and reversals needed to transform the estimated graph into the true graph. FDR is the ratio of false positives to the total number of positives. The metrics such as SHD and FDR are calculated by comparing the estimated graph with the true graph with bidirectional edges. For each combination of the number of nodes and the proportion of bidirectional edges, we generate at least 5 random graphs and calculate the average metrics.\\
+\paragraph*{Evaluation} We evaluate the performance of our method using two metrics: Structural Hamming Distance (SHD) and False Discovery Rate (FDR). SHD measures the number of edge additions, deletions, and reversals required to transform the estimated graph into the true graph. FDR represents the ratio of false positives to the total number of predicted edges. These metrics are calculated by comparing the estimated graph with the true graph, considering bidirectional edges. For each combination of the number of nodes and the proportion of bidirectional edges, we generate at least 5 random graphs and calculate the average metrics.
 
 \subsection{Independent Noise Case}
 
