@@ -152,6 +152,8 @@ log = open(log_file, 'w')
 # 2.1. Generate DAG
 G = generate_random_dag(d = args.node_size, degree=args.graph_degree, seed=args.seed)
 
+G_DAG = nx.to_numpy_array(G)
+
 # 2.2. Generate Data
 if args.dependence_type == 1:
     X, cov, cov_prev, G = generate_linear_sem_correlated(G, args.data_sample_size, args.dependence_prop, args.seed, return_cov=True, x_dims=args.x_dims, return_graph=True)
@@ -536,6 +538,12 @@ matG2 = np.matrix(best_ELBO_graph)
 for line in matG2:
     np.savetxt(f2, line, fmt='%.5f')
 f2.closed
+
+f3 = open(folder + '/trueG_DAG.txt', 'w')
+matG3 = np.matrix(G_DAG)
+for line in matG3:
+    np.savetxt(f3, line, fmt='%.5f')
+f3.closed
 
 # LT to pickle
 if args.flow_type == 'IAF':
