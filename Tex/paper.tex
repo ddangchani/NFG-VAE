@@ -28,6 +28,7 @@
 \usepackage{tikz}
 \usepackage{subcaption}
 \usepackage{hyperref}
+\usepackage[inkscapeformat=png]{svg}
 \modulolinenumbers[5]
 % \linenumbers
 
@@ -127,11 +128,11 @@ where $\mu_\phi$ and $\Sigma_\phi$ are the mean vector and covariance matrix obt
 
 \subsection{Model}
 
-The overall architecture of our model is shown in Figure \ref*{diagram}. The encoder network takes the input data matrix $\mathbf{X}\in \mathbb{R}^{B \times m \times 1}$ and adjacency matrix $\mathbf{A}\in \mathbb{R}^{m \times m}$ as inputs and outputs the mean vector $\mu_\phi$ and (log) variance $\sigma_\phi$ of the latent variable $\mathbf{z}_0$. The decoder network takes the latent variable $\mathbf{z}_T$ and the same adjacency matrix $\mathbf{A}$ used at encoder as inputs and outputs the mean vector $\mu_\theta$ and covariance matrix $\Sigma_\theta$ of the reconstructed data matrix $\mathbf{X}$. Also, during the training process the decoder variance $\sigma_\theta$ is fixed to 1. For the size of the hidden layer, we use 64.
+The overall architecture of our model is shown in Figure \ref*{diagram}. The encoder network takes the input data matrix $\mathbf{X}\in \mathbb{R}^{B \times m \times 1}$ and adjacency matrix $\mathbf{A}\in \mathbb{R}^{m \times m}$ as inputs and outputs the mean vector $\mu_\phi$ and (log) variance $\sigma_\phi$ of the latent variable $\mathbf{z}_0$. The decoder network takes the latent variable $\mathbf{z}_T$ and the same adjacency matrix $\mathbf{A}$ used at encoder as inputs and outputs the mean vector $\mu_\theta$ and covariance matrix $\Sigma_\theta$ of the reconstructed data matrix $\mathbf{X}$. Also, during the training process the decoder variance $\sigma_\theta$ is fixed to 1. For the size of the hidden layer, we use 64. Note that the $\mathbf{L_X}$ is an additional output from the encoder network. Since the initial output $\mathbf{L_X}$ is not lower triangular matrix, we apply the lower triangular matrix transformation to $\mathbf{L_X}$ to make it lower triangular matrix.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{fig/model.png}
+    \includegraphics[width=0.9\textwidth]{fig/model.pdf}
     \caption{Architecture of the proposed model.}
     \label{diagram}
 \end{figure}
@@ -141,13 +142,10 @@ The overall architecture of our model is shown in Figure \ref*{diagram}. The enc
 Our model aims to learn the adjacency matrix of the directed acyclic graph. Instead of regarding the mixed graph as a cyclic graph, we consider them as DAG structure with correlated noise variables. Thus we can use the same optimization procedure as DAG-GNN, which uses the acyclicity constraint as a continuous approximation of the discrete constraint. The optimization procedure is minimizing the following loss function:
 
 \begin{equation}
-    \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau_A \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
+    \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
 \end{equation}
 
-The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix. The third and fourth terms are the augmented Lagrangian terms. Since larger value of $c$ makes the acyclicity constraint to zero, the training process is done by gradually increasing the value of $c$. \cite{yu2019daggnn}\\
-
-
-
+The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix. We found that $\tau=0.1$ works well for a node size of 50. For other node sizes, we use $\tau$ proportional to the inverse of the square of the node size. The third and fourth terms are the augmented Lagrangian terms. We gradually increase the value of $c$ during the training process, as a larger value of $c$ reduces the acyclicity constraint to zero \cite{yu2019daggnn}.
 
 
 \section{Experiment}
@@ -164,7 +162,7 @@ Here is the introduction of our experiment on independent noise case
 
 \subsection{Dependent Noise Case}
 
-First, when the proportion of bidirectional edges is fixed to 0.5, we compare the performance of our method with DAG-GNN. The results are shown in Figure \ref*{SHD_FDR_prop50}. Our method outperforms DAG-GNN in terms of both SHD and FDR. Also, at the node size of 20, our method has shown stable training, which results a huge difference in SHD and FDR. The example of estimated graphs of each method is shown in Figure \ref*{example_graphs}. The estimated graph from DAG-GNN(third column) has much more edges than the true graph(first column), while our method(second column) has much similar number of edges with the true graph.\\
+Firstly, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop50}, demonstrate that our method surpasses DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibits stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
 
 \begin{figure}[H]
     \centering
@@ -190,7 +188,7 @@ First, when the proportion of bidirectional edges is fixed to 0.5, we compare th
     \label{example_graphs}
 \end{figure}
 
-Next, we compare the performance of two methods with different proportions of bidirectional edges. The results are shown in Figure \ref*{SHD_FDR_node10_20}. When the node size is 10, DAG-GNN outperforms our method in terms of SHD. However, when the node size is 20, our method outperforms DAG-GNN in terms of both SHD and FDR.\\
+Next, we juxtapose the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR_node10_20}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.
 
 \begin{figure}[H]
     \centering
@@ -216,8 +214,43 @@ Next, we compare the performance of two methods with different proportions of bi
         \caption{FDR with node size 20}
         \label{FDR_node20}
     \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_30_DAG_threshold0.3.pdf}
+        \caption{SHD with node size 30}
+        \label{SHD_node30}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_30_DAG_threshold0.3.pdf}
+        \caption{FDR with node size 30}
+        \label{FDR_node30}
+    \end{subfigure}
     \caption{SHD and FDR with dependence proportion 0.1, 0.3, 0.5, and 0.8}
     \label{SHD_FDR_node10_20}
+\end{figure}
+
+For the number of predicted edges, we observe that our method produces a number of edges closer to the true number of edges than DAG-GNN, especially when the node size is 20. As shown in Figure \ref*{pred_edge}, the number of predicted edges from both methods are similar when the node size is 10. However, when the node size is 20, our method produces a number of predicted edges closer to the true number of edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_10_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 10}
+        \label{pred_edge_node10}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_20_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 20}
+        \label{pred_edge_node20}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_30_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 30}
+        \label{pred_edge_node30}
+    \end{subfigure}
+    \caption{Number of predicted edges with dependence proportion 0.1, 0.3, 0.5, and 0.8}
+    \label{pred_edge}
 \end{figure}
 
 
