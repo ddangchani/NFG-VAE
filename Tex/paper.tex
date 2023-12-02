@@ -86,14 +86,14 @@ Here is the introduction of VAEs
 
 \subsection{Normalizing Flows}
 
-Normalizing flows are a method of transforming a simple distribution into a complex distribution \cite{rezende15normalizingflows}. Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. We can transform $z$ into $x$ using a series of invertible transformations $\{f_k\}_{k=1,\ldots,T}$ as follows:
+Normalizing flows are a method of transforming a simple distribution into a complex distribution \cite{rezende15normalizingflows}. Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. We can transform $z_0$ into $z_T$ using a series of invertible transformations $\{f_k\}_{k=1,\ldots,T}$ as follows:
 \begin{equation}
-    x = f_T \circ f_{T-1} \circ \cdots \circ f_1(z)
+    z_T = f_T \circ f_{T-1} \circ \cdots \circ f_1(z_0)
 \end{equation}
 
 The probability density function of $x$ can be obtained by the change of variables formula:
 \begin{equation}
-    p(x) = p(z) \left| \det \left( \frac{\partial f_T \circ f_{T-1} \circ \cdots \circ f_1(z)}{\partial z} \right) \right|
+    p(z_T) = p(z_0) \left| \det \left( \frac{\partial f_T \circ f_{T-1} \circ \cdots \circ f_1(z_0)}{\partial z_0} \right) \right|
 \end{equation}
 
 In VAE, the prior distribution of the latent variable $\mathbf{z}$ is typically assumed to be a standard Gaussian distribution or a multivariate Gaussian distribution with a diagonal covariance matrix. \cite{kingma2013auto} However, to employ a more flexible prior distribution, we can utilize normalizing flows to transform the standard Gaussian distribution into a more complex distribution. This allows us to capture richer and more intricate patterns in the latent space, such as correlation between latent variables.\\
@@ -104,7 +104,7 @@ There are several types of normalizing flows, such as Householder flow \cite{tom
     \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.
 \end{equation}
 
-The linear IAF is the simplest case of IAF, which transforms a multivariate Gaussian with diagonal covariance to a multivariate Gaussian with full covariance. The transformation is invertible and the determinant of the Jacobian is easily computable. To use linear IAF at VAE, we need to produce an extra output $\mathbf{L(x)}$ from the encoder network. The full-covariance Gaussian distribution is obtained by the following transformation:
+The linear IAF is the simplest case of IAF, which transforms a multivariate Gaussian with diagonal covariance to a multivariate Gaussian with full covariance using a single flow layer. The transformation is invertible and the determinant of the Jacobian is easily computable. To use linear IAF at VAE, we need to produce an extra output $\mathbf{L(x)}$ from the encoder network. The full-covariance Gaussian distribution is obtained by the following transformation:
 
 \begin{equation}
     \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
