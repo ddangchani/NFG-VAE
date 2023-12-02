@@ -366,7 +366,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
                     'kl_train' : '{:.4f}'.format(np.mean(kl_train)),
                     'ELBO_loss' : '{:.4f}'.format(np.mean(kl_train)  + np.mean(nll_train)),
                     'shd_trian' : '{:.0f}'.format(np.mean(shd_train)),
-                    'l1': '{:.1f}'.format(l1_norm.item())}
+                    'edge': '{:.0f}'.format(nnz)}
 
         if args.lagrange:
             to_print['h(A)'] = '{:.4f}'.format(h_A.item())
