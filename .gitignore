@@ -198,3 +198,5 @@ runscript
 run_script
 
 runscript.ps1
+
+*.png
