@@ -186,7 +186,6 @@ test.ipynb
 *.toc
 *.bbl
 *.blg
-*.pdf
 *.fls
 *.fdb_latexmk
 *.gz
@@ -198,5 +197,3 @@ runscript
 run_script
 
 runscript.ps1
-
-*.png
