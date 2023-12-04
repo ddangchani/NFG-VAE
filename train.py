@@ -107,6 +107,10 @@ parser.add_argument('--logits', type=int, default=1,
 args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
 
+# set up tau_A
+if args.tau_A == 0 and args.flow_type == 'IAF':
+    args.tau_A = 0.1 * (args.node_size / 50) ** 2
+
 # Device configuration (GPU or MPS or CPU)
 
 if torch.cuda.is_available() and args.cuda:
