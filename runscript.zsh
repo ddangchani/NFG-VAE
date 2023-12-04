@@ -1,15 +1,6 @@
 # Script to run experiments
 git pull origin train_modification
 
-python train.py --dependence_type=0 --node_size=10 --seed=101 --k_max_iter=50 --lagrange=1 --flow_type='IAF' --tau_A=0.004 --loss_prevent=0 --logits=0 --graph_dist='laplace'
-python train.py --dependence_type=0 --node_size=10 --seed=201 --k_max_iter=50 --lagrange=1 --flow_type='IAF' --tau_A=0.004 --loss_prevent=0 --logits=0 --graph_dist='laplace'
-python train.py --dependence_type=0 --node_size=10 --seed=301 --k_max_iter=50 --lagrange=1 --flow_type='IAF' --tau_A=0.004 --loss_prevent=0 --logits=0 --graph_dist='laplace'
-python train.py --dependence_type=0 --node_size=10 --seed=401 --k_max_iter=50 --lagrange=1 --flow_type='IAF' --tau_A=0.004 --loss_prevent=0 --logits=0 --graph_dist='laplace'
-python train.py --dependence_type=0 --node_size=10 --seed=501 --k_max_iter=50 --lagrange=1 --flow_type='IAF' --tau_A=0.004 --loss_prevent=0 --logits=0 --graph_dist='laplace'
-
-python train.py --dependence_type=0 --node_size=10 --seed=101 --k_max_iter=50 --lagrange=1 --flow_type='DAGGNN' --graph_dist='laplace'
-python train.py --dependence_type=0 --node_size=10 --seed=201 --k_max_iter=50 --lagrange=1 --flow_type='DAGGNN' --graph_dist='laplace'
-python train.py --dependence_type=0 --node_size=10 --seed=301 --k_max_iter=50 --lagrange=1 --flow_type='DAGGNN' --graph_dist='laplace'
 python train.py --dependence_type=0 --node_size=10 --seed=401 --k_max_iter=50 --lagrange=1 --flow_type='DAGGNN' --graph_dist='laplace'
 python train.py --dependence_type=0 --node_size=10 --seed=501 --k_max_iter=50 --lagrange=1 --flow_type='DAGGNN' --graph_dist='laplace'
 
