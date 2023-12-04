@@ -28,6 +28,7 @@
 \usepackage{tikz}
 \usepackage{subcaption}
 \usepackage{hyperref}
+\usepackage[inkscapeformat=png]{svg}
 \modulolinenumbers[5]
 % \linenumbers
 
@@ -86,14 +87,14 @@ Here is the introduction of VAEs
 
 \subsection{Normalizing Flows}
 
-Normalizing flows are a method of transforming a simple distribution into a complex distribution \cite{rezende15normalizingflows}. Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. We can transform $z$ into $x$ using a series of invertible transformations $\{f_k\}_{k=1,\ldots,T}$ as follows:
+Normalizing flows are a method of transforming a simple distribution into a complex distribution \cite{rezende15normalizingflows}. Let $z$ be a random variable with a simple distribution $p(z)$, and $x$ be a random variable with a complex distribution $p(x)$. We can transform $z_0$ into $z_T$ using a series of invertible transformations $\{f_k\}_{k=1,\ldots,T}$ as follows:
 \begin{equation}
-    x = f_T \circ f_{T-1} \circ \cdots \circ f_1(z)
+    z_T = f_T \circ f_{T-1} \circ \cdots \circ f_1(z_0)
 \end{equation}
 
 The probability density function of $x$ can be obtained by the change of variables formula:
 \begin{equation}
-    p(x) = p(z) \left| \det \left( \frac{\partial f_T \circ f_{T-1} \circ \cdots \circ f_1(z)}{\partial z} \right) \right|
+    p(z_T) = p(z_0) \left| \det \left( \frac{\partial f_T \circ f_{T-1} \circ \cdots \circ f_1(z_0)}{\partial z_0} \right) \right|
 \end{equation}
 
 In VAE, the prior distribution of the latent variable $\mathbf{z}$ is typically assumed to be a standard Gaussian distribution or a multivariate Gaussian distribution with a diagonal covariance matrix. \cite{kingma2013auto} However, to employ a more flexible prior distribution, we can utilize normalizing flows to transform the standard Gaussian distribution into a more complex distribution. This allows us to capture richer and more intricate patterns in the latent space, such as correlation between latent variables.\\
@@ -104,7 +105,7 @@ There are several types of normalizing flows, such as Householder flow \cite{tom
     \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.
 \end{equation}
 
-The linear IAF is the simplest case of IAF, which transforms a multivariate Gaussian with diagonal covariance to a multivariate Gaussian with full covariance. The transformation is invertible and the determinant of the Jacobian is easily computable. To use linear IAF at VAE, we need to produce an extra output $\mathbf{L(x)}$ from the encoder network. The full-covariance Gaussian distribution is obtained by the following transformation:
+The linear IAF is the simplest case of IAF, which transforms a multivariate Gaussian with diagonal covariance to a multivariate Gaussian with full covariance using a single flow layer. The transformation is invertible and the determinant of the Jacobian is easily computable. To use linear IAF at VAE, we need to produce an extra output $\mathbf{L(x)}$ from the encoder network. The full-covariance Gaussian distribution is obtained by the following transformation:
 
 \begin{equation}
     \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
@@ -127,11 +128,11 @@ where $\mu_\phi$ and $\Sigma_\phi$ are the mean vector and covariance matrix obt
 
 \subsection{Model}
 
-The overall architecture of our model is shown in Figure \ref*{diagram}. The encoder network takes the input data matrix $\mathbf{X}\in \mathbb{R}^{B \times m \times 1}$ and adjacency matrix $\mathbf{A}\in \mathbb{R}^{m \times m}$ as inputs and outputs the mean vector $\mu_\phi$ and (log) variance $\sigma_\phi$ of the latent variable $\mathbf{z}_0$. The decoder network takes the latent variable $\mathbf{z}_T$ and the same adjacency matrix $\mathbf{A}$ used at encoder as inputs and outputs the mean vector $\mu_\theta$ and covariance matrix $\Sigma_\theta$ of the reconstructed data matrix $\mathbf{X}$. Also, during the training process the decoder variance $\sigma_\theta$ is fixed to 1. For the size of the hidden layer, we use 64.
+The overall architecture of our model is shown in Figure \ref*{diagram}. The encoder network takes the input data matrix $\mathbf{X}\in \mathbb{R}^{B \times m \times 1}$ and adjacency matrix $\mathbf{A}\in \mathbb{R}^{m \times m}$ as inputs and outputs the mean vector $\mu_\phi$ and (log) variance $\sigma_\phi$ of the latent variable $\mathbf{z}_0$. The decoder network takes the latent variable $\mathbf{z}_T$ and the same adjacency matrix $\mathbf{A}$ used at encoder as inputs and outputs the mean vector $\mu_\theta$ and covariance matrix $\Sigma_\theta$ of the reconstructed data matrix $\mathbf{X}$. Also, during the training process the decoder variance $\sigma_\theta$ is fixed to 1. For the size of the hidden layer, we use 64. Note that the $\mathbf{L_X}$ is an additional output from the encoder network. Since the initial output $\mathbf{L_X}$ is not lower triangular matrix, we apply the lower triangular matrix transformation to $\mathbf{L_X}$ to make it lower triangular matrix.
 
-\begin{figure}
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{fig/model.png}
+    \includegraphics[width=0.9\textwidth]{fig/model.pdf}
     \caption{Architecture of the proposed model.}
     \label{diagram}
 \end{figure}
@@ -141,20 +142,17 @@ The overall architecture of our model is shown in Figure \ref*{diagram}. The enc
 Our model aims to learn the adjacency matrix of the directed acyclic graph. Instead of regarding the mixed graph as a cyclic graph, we consider them as DAG structure with correlated noise variables. Thus we can use the same optimization procedure as DAG-GNN, which uses the acyclicity constraint as a continuous approximation of the discrete constraint. The optimization procedure is minimizing the following loss function:
 
 \begin{equation}
-    \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau_A \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
+    \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
 \end{equation}
 
-The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix. The third and fourth terms are the augmented Lagrangian terms. Since larger value of $c$ makes the acyclicity constraint to zero, the training process is done by gradually increasing the value of $c$. \cite{yu2019daggnn}\\
-
-
-
+The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix. We found that $\tau=0.1$ works well for a node size of 50. For other node sizes, we use $\tau$ proportional to the inverse of the square of the node size. The third and fourth terms are the augmented Lagrangian terms. We gradually increase the value of $c$ during the training process, as a larger value of $c$ reduces the acyclicity constraint to zero \cite{yu2019daggnn}.
 
 
 \section{Experiment}
 
 In this section, we conduct experiments on simulated data to evaluate the performance of our proposed method. We compare our method with the DAG-GNN \cite{yu2019daggnn} with random graph datasets. We used a thresholding value of extracting graph as 0.3 which is the same value used at DAG-GNN and NOTEARS.\\ 
 
-\paragraph*{Datasets} Random graph datasets are generated using the following procedure. First, we generate a random directed acyclic graph using the Erdős–Rényi model. In Section 5.1, we conduct experiments where the noise variables follows a multivariate Gaussian distribution with a non-diagonal covariance matrix. We randomly select a given proportion of edges and make them bidirectional. Then, we generate a corresponding random covariance matrix and generate multivariate Gaussian data using that covariance matrix. We generate 5000 samples for each graph. For the size of the graph, we use 10, 20, 30, and 50 nodes. For the proportion of bidirectional edges, we use 0, 0.1, 0.3, 0.5, and 0.8. In Section 5.2, we consider the case where the noise variables follow not only an independent Gaussian distribution but also independent Laplace and exponential distributions.\\
+\paragraph*{Datasets} Random graph datasets are generated using the following procedure. First, we generate a random directed acyclic graph using the Erdős–Rényi model. In Section 5.1, we consider the case where the noise variables follow not only an independent Gaussian distribution but also independent Laplace and exponential distributions. In Section 5.2, we conduct experiments where the noise variables follows a multivariate Gaussian distribution with a non-diagonal covariance matrix. We randomly select a given proportion of edges and make them bidirectional. Then, we generate a corresponding random covariance matrix and generate multivariate Gaussian data using that covariance matrix. In both sections, we generate 5000 samples for each graph. For the size of the graph, we use 10, 20, 30, and 50 nodes. For the proportion of bidirectional edges, we use 0.1, 0.3, 0.5, and 0.8. \\
 
 \paragraph*{Evaluation} We evaluate the performance of our method using two metrics: Structural Hamming Distance (SHD) and False Discovery Rate (FDR). SHD measures the number of edge additions, deletions, and reversals required to transform the estimated graph into the true graph. FDR represents the ratio of false positives to the total number of predicted edges. These metrics are calculated by comparing the estimated graph with the true graph, considering bidirectional edges. For each combination of the number of nodes and the proportion of bidirectional edges, we generate at least 5 random graphs and calculate the average metrics.
 
@@ -164,7 +162,119 @@ Here is the introduction of our experiment on independent noise case
 
 \subsection{Dependent Noise Case}
 
-Here is the introduction of our experiment on dependent noise case
+Firstly, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop30}, demonstrate that our method surpasses DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibits stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_30_DAG_threshold0.3.pdf}
+        \caption{SHD with dependence proportion 0.3}
+        \label{SHD_prop30}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_30_DAG_threshold0.3.pdf}
+        \caption{FDR with dependence proportion 0.3}
+        \label{FDR_prop30}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_30_DAG_threshold0.3.pdf}
+        \caption{Number of predicted edges}
+        \label{pred_edge_prop30}
+    \end{subfigure}
+    \caption{SHD, FDR, and number of predicted edges with dependence proportion 0.3}
+    \label{SHD_FDR_prop30}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig/comparison_dep_20_50_seed31.pdf}
+    \caption{Example of estimated graphs with node size 20 and dependence proportion 0.5}
+    \label{example_graphs}
+\end{figure}
+
+Next, we compare the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_10_DAG_threshold0.3.pdf}
+        \caption{SHD with node size 10}
+        \label{SHD_node10}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_10_DAG_threshold0.3.pdf}
+        \caption{FDR with node size 10}
+        \label{FDR_node10}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_20_DAG_threshold0.3.pdf}
+        \caption{SHD with node size 20}
+        \label{SHD_node20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_20_DAG_threshold0.3.pdf}
+        \caption{FDR with node size 20}
+        \label{FDR_node20}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_30_DAG_threshold0.3.pdf}
+        \caption{SHD with node size 30}
+        \label{SHD_node30}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_30_DAG_threshold0.3.pdf}
+        \caption{FDR with node size 30}
+        \label{FDR_node30}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_50_DAG_threshold0.3.pdf}
+        \caption{SHD with node size 50}
+        \label{SHD_node50}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_50_DAG_threshold0.3.pdf}
+        \caption{FDR with node size 50}
+        \label{FDR_node50}
+    \end{subfigure}
+    \caption{SHD and FDR with dependence proportion 0.1, 0.3, 0.5, and 0.8}
+    \label{SHD_FDR}
+\end{figure}
+
+In terms of the number of predicted edges, we observe that our method produces a number of edges closer to the true number of edges than DAG-GNN, especially when the node size is 20. As shown in Figure \ref*{pred_edge}, the number of predicted edges from both methods are similar when the node size is 10. However, when the node size is 20, 30 and 50, our method produces a number of predicted edges closer to the true number of edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_10_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 10}
+        \label{pred_edge_node10}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_20_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 20}
+        \label{pred_edge_node20}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_30_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 30}
+        \label{pred_edge_node30}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_50_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 50}
+        \label{pred_edge_node50}
+    \end{subfigure}
+    \caption{Number of predicted edges with dependence proportion 0.1, 0.3, 0.5, and 0.8}
+    \label{pred_edge}
+\end{figure}
+
 
 \section{Conclusion}
 
