@@ -162,23 +162,28 @@ Here is the introduction of our experiment on independent noise case
 
 \subsection{Dependent Noise Case}
 
-Firstly, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop50}, demonstrate that our method surpasses DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibits stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
+Firstly, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop30}, demonstrate that our method surpasses DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibits stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
 
-\begin{figure}[H]
+\begin{figure}
     \centering
     \begin{subfigure}{0.45\textwidth}
-        \includegraphics[width=\textwidth]{fig/SHD_dependence_50.pdf}
-        \caption{SHD with dependence proportion 0.5}
-        \label{SHD_prop50}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_30_DAG_threshold0.3.pdf}
+        \caption{SHD with dependence proportion 0.3}
+        \label{SHD_prop30}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.45\textwidth}
-        \includegraphics[width=\textwidth]{fig/FDR_dependence_50.pdf}
-        \caption{FDR with dependence proportion 0.5}
-        \label{FDR_prop50}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_30_DAG_threshold0.3.pdf}
+        \caption{FDR with dependence proportion 0.3}
+        \label{FDR_prop30}
     \end{subfigure}
-    \caption{SHD and FDR with dependence proportion 0.5}
-    \label{SHD_FDR_prop50}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_30_DAG_threshold0.3.pdf}
+        \caption{Number of predicted edges}
+        \label{pred_edge_prop30}
+    \end{subfigure}
+    \caption{SHD, FDR, and number of predicted edges with dependence proportion 0.3}
+    \label{SHD_FDR_prop30}
 \end{figure}
 
 \begin{figure}[H]

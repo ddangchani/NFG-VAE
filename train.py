@@ -91,7 +91,7 @@ parser.add_argument('--x_dims', type=int, default=1, #changed here
                     help='The number of input dimensions: default 1.')
 parser.add_argument('--z_dims', type=int, default=1,
                     help='The number of latent variable dimensions: default the same as variable size.')
-parser.add_argument('--number_of_flows', type=int, default=5,
+parser.add_argument('--number_of_flows', type=int, default=1,
                     help='The number of HF flows: default 5.')
 parser.add_argument('--flow_type', type=str, default='IAF',
                     help='The type of flows: "DAGGNN", "IAF", "HF"(Householder), "ccIAF"')

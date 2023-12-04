@@ -76,7 +76,7 @@ np.random.seed(args.seed)
 
 now = datetime.datetime.now().strftime('%m%d_%H%M')
 if args.dependence_type == 1:
-    folder = f'results/dependence/{now}_NOTEARS_node{args.node_size}_prop{int(args.dependence_prop*100)}'
+    folder = f'results/dependence/{now}_NOTEARS_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
 else:
     folder = f'results/independence/{args.graph_dist}/{now}_NOTEARS_node{args.node_size}'
 
@@ -139,6 +139,7 @@ graph[np.abs(graph) < 0.3] = 0
 # print(graph)
 fdr, tpr, fpr, shd, nnz = count_accuracy(G, nx.DiGraph(graph))
 print('threshold 0.3, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz, file=log)
+print('threshold 0.3, Accuracy: fdr', fdr, ' tpr ', tpr, ' fpr ', fpr, 'shd', shd, 'nnz', nnz)
 
 f = open(folder + '/trueG.txt', 'w')
 matG = np.matrix(nx.to_numpy_array(G))

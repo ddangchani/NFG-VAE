@@ -176,7 +176,7 @@ class VAE_IAF(nn.Module):
             self.encoder_L = nn.Linear(args.z_dims, args.z_size)
         else:
             self.encoder_L = nn.Linear(args.encoder_hidden, args.z_size)
-        
+
         self.softmax = nn.Softmax()
 
         for m in self.modules():
