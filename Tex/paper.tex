@@ -188,9 +188,9 @@ Firstly, we set the proportion of bidirectional edges to 0.5 and compared the pe
     \label{example_graphs}
 \end{figure}
 
-Next, we juxtapose the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR_node10_20}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.
+Next, we compare the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.
 
-\begin{figure}[H]
+\begin{figure}
     \centering
     \begin{subfigure}{0.45\textwidth}
         \includegraphics[width=\textwidth]{fig/SHD_dependence_10_DAG_threshold0.3.pdf}
@@ -225,11 +225,22 @@ Next, we juxtapose the performance of the two methods, each with varying proport
         \caption{FDR with node size 30}
         \label{FDR_node30}
     \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_dependence_50_DAG_threshold0.3.pdf}
+        \caption{SHD with node size 50}
+        \label{SHD_node50}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_dependence_50_DAG_threshold0.3.pdf}
+        \caption{FDR with node size 50}
+        \label{FDR_node50}
+    \end{subfigure}
     \caption{SHD and FDR with dependence proportion 0.1, 0.3, 0.5, and 0.8}
-    \label{SHD_FDR_node10_20}
+    \label{SHD_FDR}
 \end{figure}
 
-For the number of predicted edges, we observe that our method produces a number of edges closer to the true number of edges than DAG-GNN, especially when the node size is 20. As shown in Figure \ref*{pred_edge}, the number of predicted edges from both methods are similar when the node size is 10. However, when the node size is 20, our method produces a number of predicted edges closer to the true number of edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN.
+In terms of the number of predicted edges, we observe that our method produces a number of edges closer to the true number of edges than DAG-GNN, especially when the node size is 20. As shown in Figure \ref*{pred_edge}, the number of predicted edges from both methods are similar when the node size is 10. However, when the node size is 20, 30 and 50, our method produces a number of predicted edges closer to the true number of edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN.
 
 \begin{figure}[H]
     \centering
@@ -248,6 +259,12 @@ For the number of predicted edges, we observe that our method produces a number 
         \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_30_DAG_threshold0.3.pdf}
         \caption{Predicted edges with node size 30}
         \label{pred_edge_node30}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_50_DAG_threshold0.3.pdf}
+        \caption{Predicted edges with node size 50}
+        \label{pred_edge_node50}
     \end{subfigure}
     \caption{Number of predicted edges with dependence proportion 0.1, 0.3, 0.5, and 0.8}
     \label{pred_edge}
