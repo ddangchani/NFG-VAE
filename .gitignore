@@ -186,7 +186,6 @@ test.ipynb
 *.toc
 *.bbl
 *.blg
-*.pdf
 *.fls
 *.fdb_latexmk
 *.gz
@@ -194,7 +193,10 @@ test.ipynb
 *.fdb_latexmk
 
 
+*.zsh
 runscript
 run_script
 
 runscript.ps1
+runscript.zsh
+.DS_Store
