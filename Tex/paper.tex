@@ -158,7 +158,24 @@ In this section, we conduct experiments on simulated data to evaluate the perfor
 
 \subsection{Independent Noise Case}
 
-Here is the introduction of our experiment on independent noise case
+We compare first the performance of our method with DAG-GNN in the case where the noise variables are independent. To be specific, we consider the case where the noise variables follow an independent Gaussian, Laplace, and exponential distribution. The results of the experiments are shown in Figure \ref*{SHD_FDR_gaussian}, \ref*{SHD_FDR_laplace}, and \ref*{SHD_FDR_exponential}. In all cases, our method outperforms DAG-GNN in terms of both SHD and FDR.\\
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_independence_laplace.pdf}
+        \caption{SHD with Laplace noise}
+        \label{SHD_laplace}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_independence_laplace.pdf}
+        \caption{FDR with Laplace noise}
+        \label{FDR_laplace}
+    \end{subfigure}
+    \caption{SHD and FDR with Laplace noise}
+    \label{SHD_FDR_laplace}
+\end{figure}
 
 \subsection{Dependent Noise Case}
 
