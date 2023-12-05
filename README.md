@@ -1,11 +1,11 @@
-# NFG-VAE : Normalizing Flow based Graph Learning with Variational Autoencoder
+# Learning semi-Markovian DAGs with flow-based VAE
 
 - Project proposed for M1399_000400-2023fall(Deep Learning) at Seoul National University
 
-## Topic
+## Overview
 
-- Learning Non-Gaussian DAGs with IAF based VAE
-- Learning Linear SEM with dependent noise (i.e. semi-Markovian graph) using IAF based VAE
+- Learning Non-Gaussian linear SEMs with independent noise using IAF based VAE
+- Learning linear SEMs with dependent noise (i.e. semi-Markovian graph) using IAF based VAE
 
 
 ## Environment
