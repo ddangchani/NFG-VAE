@@ -158,3 +158,45 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+
+# Test notebook
+.ipynb_checkpoints/
+/Test_notebook.ipynb
+Test_notebook.ipynb
+
+test.ipynb
+
+# results
+
+# run_script
+*.ps1
+*.sh
+*.bat
+*.zsh
+
+.DS_Store
+
+# Latex file
+
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.gz
+*.dvi
+*.fdb_latexmk
+
+
+*.zsh
+runscript
+run_script
+
+runscript.ps1
+runscript.zsh
+.DS_Store

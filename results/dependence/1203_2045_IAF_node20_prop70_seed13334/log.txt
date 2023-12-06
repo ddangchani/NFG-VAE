@@ -1,0 +1,8 @@
+Best Epoch: 0291
+Best ELBO Graph Accuracy: fdr 0.5  tpr  0.225  fpr  0.06 shd 23 nnz 18
+Best NLL Graph Accuracy: fdr 0.4  tpr  0.225  fpr  0.04 shd 21 nnz 15
+Best MSE Graph Accuracy: fdr 0.4  tpr  0.225  fpr  0.04 shd 21 nnz 15
+threshold 0.1, Accuracy: fdr 0.5666666666666667  tpr  0.325  fpr  0.11333333333333333 shd 28 nnz 30
+threshold 0.2, Accuracy: fdr 0.5  tpr  0.25  fpr  0.06666666666666667 shd 24 nnz 20
+threshold 0.3, Accuracy: fdr 0.42857142857142855  tpr  0.2  fpr  0.04 shd 22 nnz 14
+Total time elapsed: 2052.0868s
