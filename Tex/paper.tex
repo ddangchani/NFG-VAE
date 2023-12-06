@@ -156,9 +156,34 @@ In this section, we conduct experiments on simulated data to evaluate the perfor
 
 \paragraph*{Evaluation} We evaluate the performance of our method using two metrics: Structural Hamming Distance (SHD) and False Discovery Rate (FDR). SHD measures the number of edge additions, deletions, and reversals required to transform the estimated graph into the true graph. FDR represents the ratio of false positives to the total number of predicted edges. These metrics are calculated by comparing the estimated graph with the true graph, considering bidirectional edges. For each combination of the number of nodes and the proportion of bidirectional edges, we generate at least 5 random graphs and calculate the average metrics.
 
-\subsection{Independent Noise Case}
+\subsection{Independent Noise Cases}
 
-We compare first the performance of our method with DAG-GNN in the case where the noise variables are independent. To be specific, we consider the case where the noise variables follow an independent Gaussian, Laplace, and exponential distribution. The results of the experiments are shown in Figure \ref*{SHD_FDR_laplace}, and \ref*{SHD_FDR_exponential}. In all cases, our method outperforms DAG-GNN in terms of both SHD and FDR as the number of nodes increases.\\
+To compare the performance of our method with DAG-GNN, we conduct experiments on random graphs with 10, 20, and 30 nodes, assuming independent noise variables following Gaussian, Laplace, and exponential distributions. The results for the Gaussian case are shown in Figure \ref*{SHD_FDR_gaussian}. It can be observed that DAG-GNN outperforms our method in terms of SHD and FDR, considering the number of predicted edges. This is because DAG-GNN assumes that the noise variables follow a standard Gaussian distribution, making it more suitable for cases with independent Gaussian noise variables. In contrast, our method may be considered overparameterized in such cases.\\
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_independence_normal.pdf}
+        \caption{SHD with Gaussian noise}
+        \label{SHD_gaussian}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_independence_normal.pdf}
+        \caption{FDR with Gaussian noise}
+        \label{FDR_gaussian}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_independence_normal.pdf}
+        \caption{Number of predicted edges}
+        \label{pred_edge_gaussian}
+    \end{subfigure}
+    \caption{SHD, FDR, and number of predicted edges with Gaussian noise}
+    \label{SHD_FDR_gaussian}
+\end{figure}
+
+However, in cases where the noise variables follow Laplace or exponential distributions, our method consistently outperformed DAG-GNN in terms of both SHD and FDR. The results of the experiments are shown in Figure \ref*{SHD_FDR_laplace} and \ref*{SHD_FDR_exponential}. As the number of nodes increases, our method consistently demonstrates better performance compared to DAG-GNN in terms of both SHD and FDR.\\
 
 \begin{figure}[H]
     \centering
@@ -194,7 +219,7 @@ We compare first the performance of our method with DAG-GNN in the case where th
     \label{SHD_FDR_exponential}
 \end{figure}
 
-Also, we observe that the number of predicted edges from our method is closer to the true number of edges than DAG-GNN. As shown in Figure \ref*{pred_edge_laplace_exponential}, the number of predicted edges from both methods are similar when the node size is 10. However, as the node size increases, our method produces smaller number of predicted edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN in the cases where the noise variables are independent. Figure \ref*{example_graphs_indep} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
+Furthermore, we observed that our method produces a more accurate graph structure than DAG-GNN in cases where the noise variables are independent. As shown in Figure \ref*{pred_edge_laplace_exponential}, the number of predicted edges from both methods is similar when the node size is 10. However, as the node size increases, our method consistently produces a smaller number of predicted edges compared to DAG-GNN. This is in line with our method's superior performance in terms of SHD and FDR. Figure \ref*{example_graphs_indep} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph. Therefore, our method not only achieves better performance in terms of accuracy but also provides a more reliable estimation of the true graph structure.\\
 
 \begin{figure}[H]
     \centering
@@ -220,9 +245,9 @@ Also, we observe that the number of predicted edges from our method is closer to
     \label{example_graphs_indep}
 \end{figure}
 
-\subsection{Dependent Noise Case}
+\subsection{Dependent Noise Cases}
 
-Firstly, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop30}, demonstrate that our method surpasses DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibits stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
+To begin with, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop30}, demonstrate that our method outperforms DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibited stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.\\
 
 \begin{figure}[H]
     \centering
@@ -253,7 +278,7 @@ Firstly, we set the proportion of bidirectional edges to 0.5 and compared the pe
     \label{example_graphs}
 \end{figure}
 
-Next, we compare the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.
+Next, we compare the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.\\
 
 \begin{figure}[p]
     \centering
@@ -305,9 +330,9 @@ Next, we compare the performance of the two methods, each with varying proportio
     \label{SHD_FDR}
 \end{figure}
 
-In terms of the number of predicted edges, we observe that our method produces a number of edges closer to the true number of edges than DAG-GNN, especially when the node size is 20. As shown in Figure \ref*{pred_edge}, the number of predicted edges from both methods are similar when the node size is 10. However, when the node size is 20, 30 and 50, our method produces a number of predicted edges closer to the true number of edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN.
+In terms of the number of predicted edges, our method consistently produces a number of edges closer to the true number compared to DAG-GNN, especially when the node size is greater than 10. As depicted in Figure \ref*{pred_edge}, the number of predicted edges from both methods are similar when the node size is 10. However, for node sizes 20, 30, and 50, our method consistently produces a number of predicted edges that aligns more closely with the true number of edges compared to DAG-GNN. Considering the better performance of our method in terms of SHD and FDR metrics, we can conclude that our method yields a more accurate graph structure than DAG-GNN.
 
-\begin{figure}[H]
+\begin{figure}
     \centering
     \begin{subfigure}{0.45\textwidth}
         \includegraphics[width=\textwidth]{fig/Predicted Edges_dependence_10_DAG_threshold0.3.pdf}
@@ -338,7 +363,9 @@ In terms of the number of predicted edges, we observe that our method produces a
 
 \section{Conclusion}
 
-Here is the conclusion
+In this paper, we proposed a method to learn the structure of a semi-Markovian DAG using a flow-based VAE. We conducted experiments on simulated data and compared the performance of our method with that of DAG-GNN. The results demonstrate that our method outperforms DAG-GNN in terms of both SHD and FDR metrics, especially when the noise variables are dependent and the size of graph is large.
+
+However, contrary to our initial expectations, the lower triangular matrix $\mathbf L$ learned in the IAF layer did not capture the covariance matrix of the actual noise variables. This seems to be due to the entanglement problem in the latent space, and resolving this issue remains a future research task. If the full covariance matrix of the noise variables could be found, we would be able to directly identify bidirectional edges in the graph, enabling more accurate learning of the semi-Markovian graph.
 
 % Biblography
 \bibliographystyle{ieeetr}
