@@ -205,6 +205,8 @@ class VAE_IAF(nn.Module):
         z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
 
         # Flow layer
+        # L_combination 추가함
+
         L = self.encoder_L(logits)
         z['1'], LT = self.flow(L, z['0']) # z1 : after Flow
 

@@ -270,6 +270,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
     shd_train = []
     
     # set model in training mode
+<<<<<<< Updated upstream
     model.train()
     # scheduler.step()
 
@@ -278,6 +279,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         optimizer, lr = update_optimizer(optimizer, args.lr, c_A)
 
     z = {}
+>>>>>>> Stashed changes
 
     # start training
     for batch_idx, (data, relations) in enumerate(train_loader):
@@ -292,6 +294,7 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         optimizer.zero_grad()
 
         # Forward VAE
+<<<<<<< Updated upstream
         z = {}
         if args.flow_type == 'IAF' or args.flow_type == 'ccIAF':
             z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, output, x_mean, x_logvar, z['0'], z['1'], LT = model(data, rel_rec, rel_send)
@@ -325,13 +328,21 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         #     positive_gap = A_positive_loss(one_adj_A, z_positive)
         #     loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
 
+<<<<<<< Updated upstream
+        # graph의 acyclic 성질을 유지하기 위한 augumented Lagurangian - DAG-GNN 참조
+=======
+        # 그래프의 Acyclic 성질을 위한 augumented Lagurangian term, refer to DAG-GNN
+>>>>>>> Stashed changes
         # compute h(A)
         if args.lagrange:
             h_A = _h_A(origin_A, args.node_size)
             loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A)
 
-        # DAG-GNN 참조: backward 및 추가 metrics, 마찬가지로 후에 수정
+<<<<<<< Updated upstream
+=======
+        # DAG-GNN 참조: backward 및 추가 metrics
 
+>>>>>>> Stashed changes
         loss.backward()
         loss = optimizer.step()
 
