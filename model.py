@@ -3,41 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as D
 from torch.autograd import Variable
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import torch.nn.utils.weight_norm as wn
 import math
-=======
 from utils import *
->>>>>>> Stashed changes
-=======
-from utils import *
->>>>>>> Stashed changes
+import numpy as np
 
 
-<<<<<<< Updated upstream
-# What to do?
-=======
-# z로 변수변환 시 volume을 보존한다고 하는 convex combination (refer to Tomczak & Welling (2017))
-
-class combination_L(nn.Module):
-    def __init__(self,args):
-        super(combination_L, self).__init__()
-        self.args = args
-
-    def forward(self, L, y):
-        '''
-        :param L: batch_size (B) x latent_size^2 * number_combination (L^2 * C)
-        :param y: batch_size (B) x number_combination (C)
-        :return: L_combination = y * L
-        '''
-        # calculate combination of Ls
-        L_tensor = L.view( -1, self.args.z1_size**2, self.args.number_combination ) # resize to get B x L^2 x C
-        y = y.unsqueeze(1).expand(y.size(0), self.args.z1_size**2, y.size(1)) # expand to get B x L^2 x C
-        L_combination = torch.sum( L_tensor * y, 2 ).squeeze()
-        return L_combination
-
-# self.args.number_combination 을 설정해야 될지도
+from torch.autograd import Variable
 
 class FlowLayer(nn.Module):
     """
@@ -64,46 +36,32 @@ class FlowLayer(nn.Module):
         LTmask = LTmask.unsqueeze(0).expand(L_matrix.size(0), self.args.z_size, self.args.z_size)
         LT = torch.mul(L_matrix, LTmask) + I # Lower triangular batches
         z_new = torch.bmm(LT, z) # B x L x L * B x L x 1 = B x L x 1
->>>>>>> Stashed changes
 
-# args : arguments from train.py (parser)
-
-# 1. VAE Encoder class
+        return z_new, LT
 
 class Encoder(nn.Module):
     """
     Encoder class for VAE
     """
-    def __init__(self, args, tol=0.1):
+    def __init__(self, args, adj_A, tol=0.1):
         super(Encoder, self).__init__()
-        self.adj_A = nn.Parameter(Variable(torch.from_numpy(args.adj_A).double(), requires_grad=True))
-        self.factor = args.factor
 
-        self.Wa = nn.Parameter(torch.zeros(args.n_out), requires_grad=True) # Learnable parameter
-        self.fc1 = nn.Linear(args.n_xdims, args.n_hid, bias = True)
-        self.fc2 = nn.Linear(args.n_hid, args.n_out, bias = True)
-        self.dropout_prob = args.do_prob
+        self.args = args
+        self.adj_A = nn.Parameter(torch.from_numpy(adj_A).double(), requires_grad=True)
+        self.Wa = nn.Parameter(torch.zeros(args.z_dims), requires_grad=True)
+        self.fc1 = nn.Linear(args.x_dims, args.encoder_hidden, bias=True)
+        self.fc2 = nn.Linear(args.encoder_hidden, args.z_dims, bias=True)
         self.batch_size = args.batch_size
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        self.z = nn.Parameter(torch.tensor(args.tol))
-        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
-=======
-        
-        # for other loss term in training
-=======
+        self.dropout = nn.Dropout(p=args.encoder_dropout)
 
         # for other loss
->>>>>>> Stashed changes
         self.z = nn.Parameter(torch.tensor(tol))
-        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(args.adj_A)).double())
+        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(adj_A)).double())
 
         # For Flow layer
-        self.encoder_mean = nn.Linear(args.n_out, args.z1_size)
-        self.encoder_logvar = nn.Linear(args.n_out, args.z1_size)
+        self.encoder_mean = nn.Linear(args.z_dims, args.z_dims)
+        self.encoder_logvar = nn.Linear(args.z_dims, args.z_dims)
 
-
->>>>>>> Stashed changes
         self.init_weights()
 
     def init_weights(self):
@@ -113,67 +71,34 @@ class Encoder(nn.Module):
             elif isinstance(m, nn.BatchNorm1d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
-    
-    def forward(self, inputs, rel_rec, rel_send):
+
+    def forward(self, inputs):
 
         if torch.sum(self.adj_A != self.adj_A):
             print('nan error \n')
 
-        # to amplify the value of A and accelerate convergence. (why?)
-        adj_A1 = torch.sinh(3.*self.adj_A)
+        adj_A1 = torch.sinh(3.*self.adj_A.float()) # amplify A
 
-<<<<<<< Updated upstream
         # adj_Aforz = $I-A^T$
-        adj_Aforz = (torch.eye(adj_A1.shape[0]).double() - (adj_A1.transpose(0,1)))
-=======
-        adj_Aforz = preprocess_adj_new(adj_A1) # adj_Aforz = $I-A^T$
->>>>>>> Stashed changes
+        adj_Aforz = (torch.eye(adj_A1.shape[0]).float() - (adj_A1.transpose(0,1)))
 
-        adj_A = torch.eye(adj_A1.size()[0]).double()
-        H1 = F.relu((self.fc1(inputs)))
-        x = (self.fc2(H1))
-        logits = torch.matmul(adj_Aforz, x + self.Wa) - self.Wa
+        adj_A = torch.eye(adj_A1.size()[0]).float()
+        h0 = F.relu((self.fc1(inputs.float()))) # first hidden layer
+        h0 = self.dropout(h0)
+        h1 = (self.fc2(h0)) # second hidden layer
+        logits = torch.matmul(adj_Aforz, h1 + self.Wa) - self.Wa
 
-        return ...
-
-
-# 2. Normalizing Flow layer class
-
-class FlowLayer(nn.Module):
-    """
-    Normalizing Flow class (Inverse Autoregressive Flow)
-    """
-
-    def __init__(self, args):
-        super(FlowLayer, self).__init__()
-        n_in = args.f_size # f_size : flow size
-        n_out = args.f_size * 2 + args.z_size * 2 # z_size : latent size
-
-        self.z_size = args.z_size
-        self.f_size = args.f_size
-        self.args = args
-
-        # self.down_ar_conv = 
-
-    
-    def up(self, input):
+        # For Flow layer
+        z_q_mean = self.encoder_mean(logits)
+        z_q_logvar = self.encoder_logvar(logits)
         
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        return ...
-
-    def down(self, input, sample=False):
-            
-        return ...
-=======
+        if self.args.logits:
+            logits = logits # B * L * 1
+        else:
+            logits = h0 # B * L * 64
+        
         return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
->>>>>>> Stashed changes
-=======
-        return z_q_mean, z_q_logvar, logits, adj_A1, adj_A, self.adj_A, self.z, self.z_positive, self.Wa
->>>>>>> Stashed changes
 
-
-# 3. VAE Decoder class
 
 class Decoder(nn.Module):
     """
@@ -183,13 +108,15 @@ class Decoder(nn.Module):
     def __init__(self, args):
         super(Decoder, self).__init__()
 
-        self.out_fc1 = nn.Linear(args.z_size, args.n_hid, bias = True)
-        self.out_fc2 = nn.Linear(args.n_hid, args.n_out, bias = True)
+        self.out_fc1 = nn.Linear(args.z_dims, args.decoder_hidden, bias = True)
+        self.out_fc2 = nn.Linear(args.decoder_hidden, args.z_dims, bias = True)
 
-        self.dropout_prob = args.do_prob
         self.batch_size = args.batch_size
+        self.node_size = args.node_size
 
-        self.data_variable_size = args.data_variable_size
+        self.decoder_mean = nn.Linear(args.z_dims, args.z_dims)
+        self.sigmoid = nn.Sigmoid()
+        self.dropout = nn.Dropout(p=args.decoder_dropout)
 
         self.init_weights()
 
@@ -204,37 +131,52 @@ class Decoder(nn.Module):
     def forward(self, input_z, origin_A, Wa):
         # Wa : Encoder에서 학습한 parameter
         
-<<<<<<< Updated upstream
         # adj_A_new_inv = $(I-A^T)^{-1}$
-        adj_A_new_inv = torch.inverse(torch.eye(origin_A.shape[0]).double() 
-                                      - origin_A.transpose(0,1))
-=======
-        # adj_A_inv = $(I-A^T)^{-1}$
-        adj_A_inv = preprocess_adj_new1(origin_A)
->>>>>>> Stashed changes
+        adj_A_new_inv = torch.inverse(torch.eye(origin_A.shape[0]).float() 
+                                      - origin_A.transpose(0,1).float())
 
         mat_z = torch.matmul(adj_A_new_inv, input_z + Wa) - Wa
-
+        
         H3 = F.relu((self.out_fc1(mat_z)))
+        H3 = self.dropout(H3)
         out = self.out_fc2(H3)
 
-        return mat_z, out
+        # to Mean
+        x_mean = self.decoder_mean(out)
+        x_logvar = 0.
 
-<<<<<<< Updated upstream
-        
-=======
         return mat_z, out, x_mean, x_logvar
 
+class combination_L(nn.Module):
+    def __init__(self,args):
+        super(combination_L, self).__init__()
+        self.args = args
 
-class VAE(nn.Module):
-    def __init__(self, args):
-        super(VAE, self).__init__()
+    def forward(self, L, y):
+        '''
+        :param L: batch_size (B) x latent_size^2 * number_combination (L^2 * C)
+        :param y: batch_size (B) x number_combination (C)
+        :return: L_combination = y * L
+        '''
+        # calculate combination of Ls
+        L_tensor = L.view(-1, self.args.z_size**2, self.args.number_combination ) # resize to get B x L^2 x C
+        y = y.unsqueeze(1).expand(y.size(0), self.args.z_size**2, y.size(1)) # expand to get B x L^2 x C
+        L_combination = torch.sum( L_tensor * y, 2 ).squeeze()
+        return L_combination # B x L^2
+
+class VAE_IAF(nn.Module):
+    def __init__(self, args, adj_A):
+        super(VAE_IAF, self).__init__()
 
         self.args = args
-        self.encoder = Encoder(args)
+        self.encoder = Encoder(args, adj_A=adj_A)
         self.decoder = Decoder(args)
         self.flow = FlowLayer(args)
-        self.encoder_L = nn.Linear(args.n_out, args.z1_size**2)
+        if self.args.logits:
+            self.encoder_L = nn.Linear(args.z_dims, args.z_size)
+        else:
+            self.encoder_L = nn.Linear(args.encoder_hidden, args.z_size)
+
         self.softmax = nn.Softmax()
 
         for m in self.modules():
@@ -249,17 +191,15 @@ class VAE(nn.Module):
             eps = torch.FloatTensor(std.size()).normal_()
 
         eps = Variable(eps)
+
         return eps.mul(std).add_(mu) # return y sample
 
-    def forward(self, input):
+    def forward(self, input, rel_rec, rel_send):
         z = {}
         # z ~ q(z|x) : encoder
-<<<<<<< Updated upstream
+
         z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
         # myA = encoder.adj_A, adj_A_tilt is identity matrix
-=======
-        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa  = self.encoder(input)
->>>>>>> Stashed changes
 
         # reparemeterization trick
         z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
@@ -268,111 +208,172 @@ class VAE(nn.Module):
         # L_combination 추가함
 
         L = self.encoder_L(logits)
-        y = self.softmax(self.encoder_y(logits))
+        z['1'], LT = self.flow(L, z['0']) # z1 : after Flow
+
+        # z ~ p(x|z) : decoder
+        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
+
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'], LT
+
+class daggnn(nn.Module):
+    def __init__(self, args, adj_A):
+        super(daggnn, self).__init__()
+
+        self.encoder = Encoder(args, adj_A=adj_A)
+        self.decoder = Decoder(args)
+
+        self.args = args
+        self.adj_A = nn.Parameter(torch.from_numpy(adj_A).double(), requires_grad=True)
+        self.Wa = nn.Parameter(torch.zeros(args.z_dims), requires_grad=True)
+
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_() # standard deviation from log variance
+        if self.args.cuda: # generate random noise epsilon for reparameterization trick
+            eps = torch.cuda.FloatTensor(std.size()).normal_()
+        else:
+            eps = torch.FloatTensor(std.size()).normal_()
+
+        eps = Variable(eps)
+
+        return eps.mul(std).add_(mu) # return y sample
+
+    def forward(self, input, rel_rec, rel_send):
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
+        z = self.reparameterize(z_q_mean, z_q_logvar)
+        mat_z, out, x_mean, x_logvar = self.decoder(z, origin_A, Wa)
+
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z, z
+
+
+class HF(nn.Module):
+    def __init__(self):
+        super(HF, self).__init__()
+
+    def forward(self, v, z):
+        '''
+        :param v: batch_size (B) x latent_size (L)
+        :param z: batch_size (B) x latent_size (L)
+        :return: z_new = z - 2* v v_T / norm(v,2) * z
+        '''
+        # v * v_T
+        vT = v.transpose(1,2) # v_T : transpose of v : B x 1 x L
+        vvT = torch.bmm(v, vT) # vvT : batchdot( B x L x 1 * B x 1 x L ) = B x L x L
+        
+        # v * v_T * z
+        vvTz = torch.bmm(vvT, z) # A * z : batchdot( B x L x L * B x L x 1 ).squeeze(2) = (B x L x 1).squeeze(2) = B x L
+        # calculate norm ||v||^2
+        norm_sq = torch.sum( v * v, 1 ) # calculate norm-2 for each row : B x 1
+        norm_sq = norm_sq.expand(norm_sq.size(0), v.size(1)) # expand sizes : B x L
+
+        # calculate new z
+        z_new = z.squeeze(-1) - 2 * vvTz.squeeze(-1) / norm_sq # z - 2 * v * v_T  * z / norm2(v)
+        return z_new.unsqueeze(-1)
+
+class VAE_HF(nn.Module):
+    def __init__(self, args, adj_A):
+        super(VAE_HF, self).__init__()
+
+        self.args = args
+        self.encoder = Encoder(args, adj_A=adj_A)
+        self.decoder = Decoder(args)
+        self.softmax = nn.Softmax()
+        self.HF = HF()
+        # Householder flow
+        self.v_layers = nn.ModuleList()
+        # T > 0
+        if self.args.number_of_flows > 0:
+            for i in range(self.args.number_of_flows):
+                self.v_layers.append(nn.Linear(self.args.z_size, self.args.z_size))
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight.data)
+
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_() # standard deviation from log variance
+        if self.args.cuda: # generate random noise epsilon for reparameterization trick
+            eps = torch.cuda.FloatTensor(std.size()).normal_()
+        else:
+            eps = torch.FloatTensor(std.size()).normal_()
+
+        eps = Variable(eps)
+
+        return eps.mul(std).add_(mu) # return y sample
+
+    def q_z_Flow(self, z, h_last):
+        v = {}
+        # Householder Flow:
+        if self.args.number_of_flows > 0:
+            v['1'] = self.v_layers[0](h_last.squeeze(-1)).unsqueeze(-1)
+            z['1'] = self.HF(v['1'], z['0'])
+            for i in range(1, self.args.number_of_flows):
+                v[str(i + 1)] = self.v_layers[i](v[str(i)].squeeze(-1)).unsqueeze(-1)
+                z[str(i + 1)] = self.HF(v[str(i + 1)], z[str(i)])
+        
+        return z
+
+    def forward(self, input, rel_rec, rel_send):
+        z = {}
+        # z ~ q(z|x) : encoder
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix
+
+        # reparemeterization trick
+        z['0'] = self.reparameterize(z_q_mean, z_q_logvar)
+
+        # Flow layer
+        z = self.q_z_Flow(z, logits)
+
+        # z ~ p(x|z) : decoder
+        mat_z, out, x_mean, x_logvar = self.decoder(z[str(self.args.number_of_flows)], origin_A, Wa)
+
+        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z[str(self.args.number_of_flows)]
+
+class VAE_ccIAF(nn.Module):
+    def __init__(self, args, adj_A):
+        super(VAE_ccIAF, self).__init__()
+
+        self.args = args
+        self.encoder = Encoder(args, adj_A=adj_A)
+        self.decoder = Decoder(args)
+        self.flow = FlowLayer(args)
+        self.encoder_L = nn.Linear(args.z_dims, args.z_size * args.number_combination)
+        self.encoder_y = nn.Linear(args.z_size, args.number_combination)
+        self.softmax = nn.Softmax()
+        self.combination_L = combination_L(args)
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight.data)
+
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_() # standard deviation from log variance
+        if self.args.cuda: # generate random noise epsilon for reparameterization trick
+            eps = torch.cuda.FloatTensor(std.size()).normal_()
+        else:
+            eps = torch.FloatTensor(std.size()).normal_()
+
+        eps = Variable(eps)
+
+        return eps.mul(std).add_(mu) # return y sample
+
+    def forward(self, input, rel_rec, rel_send):
+        z = {}
+        # z ~ q(z|x) : encoder
+
+        z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa = self.encoder(input) 
+        # myA = encoder.adj_A, adj_A_tilt is identity matrix
+
+        # reparemeterization trick
+        z['0'] = self.reparameterize(z_q_mean, z_q_logvar) # z0 : before Flow
+
+        # Flow layer
+        L = self.encoder_L(logits)
+        y = self.softmax(self.encoder_y(logits.squeeze(-1)))
         L_combination = self.combination_L(L, y)
         z['1'] = self.flow(L_combination, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
-<<<<<<< Updated upstream
-        mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa) 
-
-        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
->>>>>>> Stashed changes
-=======
         mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
 
-<<<<<<< Updated upstream
-        return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1']
->>>>>>> Stashed changes
-=======
         return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'], L_combination
-
-
-## References/DAG-GNN/models.py
-
-
-class MLPEncoder(nn.Module):
-    """MLP encoder module."""
-    def __init__(self, n_in, n_xdims, n_hid, n_out, adj_A, batch_size, do_prob=0., factor=True, tol = 0.1):
-        super(MLPEncoder, self).__init__()
-
-        self.adj_A = nn.Parameter(Variable(torch.from_numpy(adj_A).double(), requires_grad=True))
-        self.factor = factor
-
-        self.Wa = nn.Parameter(torch.zeros(n_out), requires_grad=True)
-        self.fc1 = nn.Linear(n_xdims, n_hid, bias = True)
-        self.fc2 = nn.Linear(n_hid, n_out, bias = True)
-        self.dropout_prob = do_prob
-        self.batch_size = batch_size
-        self.z = nn.Parameter(torch.tensor(tol))
-        self.z_positive = nn.Parameter(torch.ones_like(torch.from_numpy(adj_A)).double())
-        self.init_weights()
-
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight.data)
-            elif isinstance(m, nn.BatchNorm1d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-
-
-    def forward(self, inputs, rel_rec, rel_send):
-
-        if torch.sum(self.adj_A != self.adj_A):
-            print('nan error \n')
-
-        # to amplify the value of A and accelerate convergence.
-        adj_A1 = torch.sinh(3.*self.adj_A)
-
-        # adj_Aforz = I-A^T
-        adj_Aforz = preprocess_adj_new(adj_A1)
-
-        adj_A = torch.eye(adj_A1.size()[0]).double()
-        H1 = F.relu((self.fc1(inputs)))
-        x = (self.fc2(H1))
-        logits = torch.matmul(adj_Aforz, x+self.Wa) -self.Wa
-
-        print('logits', logits.shape)
-
-        return x, logits, adj_A1, adj_A, self.z, self.z_positive, self.adj_A, self.Wa
-
-
-class MLPDecoder(nn.Module):
-    """MLP decoder module."""
-
-    def __init__(self, n_in_node, n_in_z, n_out, encoder, data_variable_size, batch_size,  n_hid,
-                 do_prob=0.):
-        super(MLPDecoder, self).__init__()
-
-        self.out_fc1 = nn.Linear(n_in_z, n_hid, bias = True)
-        self.out_fc2 = nn.Linear(n_hid, n_out, bias = True)
-
-        self.batch_size = batch_size
-        self.data_variable_size = data_variable_size
-
-        self.dropout_prob = do_prob
-
-        self.init_weights()
-
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight.data)
-                m.bias.data.fill_(0.0)
-            elif isinstance(m, nn.BatchNorm1d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-
-    def forward(self, inputs, input_z, n_in_node, rel_rec, rel_send, origin_A, adj_A_tilt, Wa):
-
-        #adj_A_new1 = (I-A^T)^(-1)
-        adj_A_new1 = preprocess_adj_new1(origin_A)
-        mat_z = torch.matmul(adj_A_new1, input_z+Wa)-Wa
-
-        H3 = F.relu(self.out_fc1((mat_z)))
-        out = self.out_fc2(H3)
-
-        return mat_z, out, adj_A_tilt
-
->>>>>>> Stashed changes
