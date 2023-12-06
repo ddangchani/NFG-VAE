@@ -158,13 +158,73 @@ In this section, we conduct experiments on simulated data to evaluate the perfor
 
 \subsection{Independent Noise Case}
 
-Here is the introduction of our experiment on independent noise case
+We compare first the performance of our method with DAG-GNN in the case where the noise variables are independent. To be specific, we consider the case where the noise variables follow an independent Gaussian, Laplace, and exponential distribution. The results of the experiments are shown in Figure \ref*{SHD_FDR_laplace}, and \ref*{SHD_FDR_exponential}. In all cases, our method outperforms DAG-GNN in terms of both SHD and FDR as the number of nodes increases.\\
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_independence_laplace.pdf}
+        \caption{SHD with Laplace noise}
+        \label{SHD_laplace}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_independence_laplace.pdf}
+        \caption{FDR with Laplace noise}
+        \label{FDR_laplace}
+    \end{subfigure}
+    \caption{SHD and FDR with Laplace noise}
+    \label{SHD_FDR_laplace}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/SHD_independence_exponential.pdf}
+        \caption{SHD with exponential noise}
+        \label{SHD_exponential}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/FDR_independence_exponential.pdf}
+        \caption{FDR with exponential noise}
+        \label{FDR_exponential}
+    \end{subfigure}
+    \caption{SHD and FDR with exponential noise}
+    \label{SHD_FDR_exponential}
+\end{figure}
+
+Also, we observe that the number of predicted edges from our method is closer to the true number of edges than DAG-GNN. As shown in Figure \ref*{pred_edge_laplace_exponential}, the number of predicted edges from both methods are similar when the node size is 10. However, as the node size increases, our method produces smaller number of predicted edges than DAG-GNN. Considering that our method outperforms DAG-GNN in terms of SHD and FDR, we can conclude that our method produces a more accurate graph structure than DAG-GNN in the cases where the noise variables are independent. Figure \ref*{example_graphs_indep} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_independence_laplace.pdf}
+        \caption{Predicted edges with Laplace noise}
+        \label{pred_edge_laplace}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{fig/Predicted Edges_independence_exponential.pdf}
+        \caption{Predicted edges with exponential noise}
+        \label{pred_edge_exponential}
+    \end{subfigure}
+    \caption{Number of predicted edges with Laplace and exponential noise}
+    \label{pred_edge_laplace_exponential}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig/comparison_indep_30_exponential_seed301.pdf}
+    \caption{Example of estimated graphs with node size 30 and exponential noise}
+    \label{example_graphs_indep}
+\end{figure}
 
 \subsection{Dependent Noise Case}
 
 Firstly, we set the proportion of bidirectional edges to 0.5 and compared the performance of our method with that of DAG-GNN. The results, as depicted in Figure \ref*{SHD_FDR_prop30}, demonstrate that our method surpasses DAG-GNN in terms of both SHD and FDR. Notably, with a node size of 20, our method exhibits stable training, resulting in a significant difference in SHD and FDR. Figure \ref*{example_graphs} presents the estimated graphs produced by each method. The graph estimated by DAG-GNN (third column) contains considerably more edges than the true graph (first column), whereas the graph estimated by our method (second column) has a number of edges much closer to that of the true graph.
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \begin{subfigure}{0.45\textwidth}
         \includegraphics[width=\textwidth]{fig/SHD_dependence_30_DAG_threshold0.3.pdf}
@@ -195,7 +255,7 @@ Firstly, we set the proportion of bidirectional edges to 0.5 and compared the pe
 
 Next, we compare the performance of the two methods, each with varying proportions of bidirectional edges. The results, as illustrated in Figure \ref*{SHD_FDR}, reveal that when the node size is 10, DAG-GNN surpasses our method in terms of SHD. However, when the node size is increased to 20, our method takes the lead, outperforming DAG-GNN in both SHD and FDR metrics.
 
-\begin{figure}
+\begin{figure}[p]
     \centering
     \begin{subfigure}{0.45\textwidth}
         \includegraphics[width=\textwidth]{fig/SHD_dependence_10_DAG_threshold0.3.pdf}
