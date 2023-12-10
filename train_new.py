@@ -603,5 +603,5 @@ for _, spine in axes[1].spines.items():
     spine.set_visible(True)
 axes[1].set_xticks([])
 axes[1].set_yticks([])
-fig.tight_layout(rect=[0, 0, .9, 1])
+# fig.tight_layout(rect=[0, 0, .9, 1])
 plt.savefig(folder + '/cov.png', dpi=300)

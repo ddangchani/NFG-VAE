@@ -49,7 +49,7 @@ class Encoder(nn.Module):
         self.args = args
         self.adj_A = nn.Parameter(torch.from_numpy(adj_A).double(), requires_grad=True)
         self.Wa = nn.Parameter(torch.zeros(args.z_dims), requires_grad=True)
-        self.fc1 = nn.Linear(args.x_dims, args.encoder_hidden, bias=True)
+        self.fc1 = nn.Linear(args.z_dims, args.encoder_hidden, bias=True)
         self.fc2 = nn.Linear(args.encoder_hidden, args.z_dims, bias=True)
         self.batch_size = args.batch_size
         self.dropout = nn.Dropout(p=args.encoder_dropout)
@@ -84,10 +84,10 @@ class Encoder(nn.Module):
 
         adj_A = torch.eye(adj_A1.size()[0]).float()
 
-        logits = torch.matmul(adj_Aforz, inputs.float() + self.Wa) - self.Wa
+        logits = torch.matmul(adj_Aforz, inputs.float() + self.Wa) - self.Wa # B x L x 1
 
-        h0 = F.relu((self.fc1(logits))) # first hidden layer
-        h1 = (self.fc2(h0))
+        h0 = F.relu((self.fc1(logits))) # B x L x 1
+        h1 = (self.fc2(h0)) # B x L x 1
 
         # For Flow layer
         z_q_mean = self.encoder_mean(h1)
@@ -160,10 +160,31 @@ class VAE_IAF_SEM(nn.Module):
             self.encoder_L = nn.Linear(args.encoder_hidden, args.z_size)
 
         self.softmax = nn.Softmax()
+        self.bf1 = nn.Linear(args.z_size, args.z_size)
+        self.bf2 = nn.Linear(args.z_size, args.z_size)
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight.data)
+
+    def before_flow(self, logits):
+        """
+        :param logits: B x L x 1
+        :return: L : B x L x L
+        """
+        L0 = self.encoder_L(logits) # B x L x L
+        L1 = self.softmax(L0)
+        L2 = F.tanh(self.bf1(L1))
+
+        logits_squeeze = logits.squeeze(2) # B x L
+
+        ZTZ = torch.matmul(logits_squeeze.transpose(0, 1), logits_squeeze) # L x L
+        ZTZ = ZTZ.expand(L0.size(0), self.args.z_size, self.args.z_size) # B x L x L
+        L3 = F.tanh(self.bf2(ZTZ))
+
+        L = L2 + L3
+
+        return L
 
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_() # standard deviation from log variance
@@ -189,7 +210,8 @@ class VAE_IAF_SEM(nn.Module):
         # Flow layer
         # L_combination 추가함
 
-        L = self.encoder_L(logits)
+        L = self.before_flow(logits)
+
         z['1'], LT = self.flow(L, z['0']) # z1 : after Flow
 
         # z ~ p(x|z) : decoder
