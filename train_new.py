@@ -11,11 +11,25 @@ from torch.utils.data.dataset import TensorDataset
 import math
 import numpy as np
 from utils import *
-from model import *
+from model_newIAF import *
 from data import *
 from loss import *
 from tqdm import tqdm
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import scienceplots
+
+plt.style.use(['science', 'ieee'])
+from matplotlib import cm
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
+top = cm.get_cmap('Oranges_r', 128)
+bottom = cm.get_cmap('Blues', 128)
+
+newcolors = np.vstack((top(np.linspace(0, 1, 128)),
+                       bottom(np.linspace(0, 1, 128))))
+newcmp = ListedColormap(newcolors, name='OrangeBlue')
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -108,8 +122,8 @@ args = parser.parse_args()
 args.z_size = args.node_size # the number of latent variables
 
 # set up tau_A
-if args.tau_A == 0 and args.flow_type == 'IAF':
-    args.tau_A = 0.1 * (args.node_size / 50) ** 2
+# if args.tau_A == 0 and args.flow_type == 'IAF':
+#     args.tau_A = 0.1 * (args.node_size / 50) ** 2
 
 # Device configuration (GPU or MPS or CPU)
 
@@ -135,9 +149,9 @@ else:
     raise ValueError(f'Invalid flow type: {args.flow_type}.')
 
 if args.dependence_type == 1:
-    folder = f'results/dependence/{now}_{flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
+    folder = f'results_new/dependence/{now}_{flow_type}_node{args.node_size}_prop{int(args.dependence_prop*100)}_seed{args.seed}'
 else:
-    folder = f'results/independence/{args.graph_dist}/{now}_{flow_type}_node{args.node_size}_seed{args.seed}'
+    folder = f'results_new/independence/{args.graph_dist}/{now}_{flow_type}_node{args.node_size}_seed{args.seed}'
 
 if not args.lagrange:
     folder += '_noL'
@@ -205,7 +219,7 @@ adj_A = np.zeros([args.node_size, args.node_size])
 
 # 3.1. Load VAE
 if args.flow_type == 'IAF':
-    vae = VAE_IAF(args=args, adj_A=adj_A)
+    vae = VAE_IAF_SEM(args=args, adj_A=adj_A)
 elif args.flow_type == 'HF':
     vae = VAE_HF(args=args, adj_A=adj_A)
 elif args.flow_type == 'DAGGNN':
@@ -323,10 +337,13 @@ def train(epoch, model, best_val_loss, G, lambda_A, c_A, optimizer, pbar=None):
         #     positive_gap = A_positive_loss(one_adj_A, z_positive)
         #     loss += .1 * (lambda_A * positive_gap + 0.5 * c_A * positive_gap * positive_gap)
 
+        # 그래프의 Acyclic 성질을 위한 augumented Lagurangian term, refer to DAG-GNN
         # compute h(A)
         if args.lagrange:
             h_A = _h_A(origin_A, args.node_size)
             loss += lambda_A * h_A + 0.5 * c_A * h_A * h_A + 100. * torch.trace(origin_A*origin_A)
+
+        # DAG-GNN 참조: backward 및 추가 metrics
 
         loss.backward()
         loss = optimizer.step()
@@ -567,3 +584,24 @@ if log is not None:
 # Save curves
 df = pd.DataFrame({'SHD': shd_curve, 'predicted edges': nnd_curve, 'FDR': fdr_curve})
 df.to_csv(folder + '/metrics.csv', index=True)
+
+# Plot covariance matrix
+
+fig, axes = plt.subplots(1, 2, figsize = (10, 5), sharex=True, sharey=True)
+
+cbar_ax = fig.add_axes([.91, .3, .03, .4])
+
+sns.heatmap(cov, cmap=newcmp, ax=axes[0], vmin=-2, vmax=2, cbar=True, cbar_ax=cbar_ax)
+axes[0].set_title('True Covariance', fontsize=20)
+for _, spine in axes[0].spines.items():
+    spine.set_visible(True)
+axes[0].set_xticks([])  
+axes[0].set_yticks([])
+sns.heatmap(LT_cov, cmap=newcmp, ax=axes[1], vmin=-2, vmax=2, cbar=False)
+axes[1].set_title('Predicted Covariance', fontsize=20)
+for _, spine in axes[1].spines.items():
+    spine.set_visible(True)
+axes[1].set_xticks([])
+axes[1].set_yticks([])
+# fig.tight_layout(rect=[0, 0, .9, 1])
+plt.savefig(folder + '/cov.png', dpi=300)

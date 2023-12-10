@@ -147,23 +147,6 @@ class Decoder(nn.Module):
 
         return mat_z, out, x_mean, x_logvar
 
-class combination_L(nn.Module):
-    def __init__(self,args):
-        super(combination_L, self).__init__()
-        self.args = args
-
-    def forward(self, L, y):
-        '''
-        :param L: batch_size (B) x latent_size^2 * number_combination (L^2 * C)
-        :param y: batch_size (B) x number_combination (C)
-        :return: L_combination = y * L
-        '''
-        # calculate combination of Ls
-        L_tensor = L.view(-1, self.args.z_size**2, self.args.number_combination ) # resize to get B x L^2 x C
-        y = y.unsqueeze(1).expand(y.size(0), self.args.z_size**2, y.size(1)) # expand to get B x L^2 x C
-        L_combination = torch.sum( L_tensor * y, 2 ).squeeze()
-        return L_combination # B x L^2
-
 class VAE_IAF(nn.Module):
     def __init__(self, args, adj_A):
         super(VAE_IAF, self).__init__()
@@ -377,3 +360,20 @@ class VAE_ccIAF(nn.Module):
         mat_z, out, x_mean, x_logvar = self.decoder(z['1'], origin_A, Wa)
 
         return z_q_mean, z_q_logvar, logits, origin_A, adj_A_tilt, myA, z_gap, z_positive, Wa, mat_z, out, x_mean, x_logvar, z['0'], z['1'], L_combination
+
+class combination_L(nn.Module):
+    def __init__(self,args):
+        super(combination_L, self).__init__()
+        self.args = args
+
+    def forward(self, L, y):
+        '''
+        :param L: batch_size (B) x latent_size^2 * number_combination (L^2 * C)
+        :param y: batch_size (B) x number_combination (C)
+        :return: L_combination = y * L
+        '''
+        # calculate combination of Ls
+        L_tensor = L.view(-1, self.args.z_size**2, self.args.number_combination ) # resize to get B x L^2 x C
+        y = y.unsqueeze(1).expand(y.size(0), self.args.z_size**2, y.size(1)) # expand to get B x L^2 x C
+        L_combination = torch.sum( L_tensor * y, 2 ).squeeze()
+        return L_combination # B x L^2
