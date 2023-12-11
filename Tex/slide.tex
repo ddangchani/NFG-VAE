@@ -6,8 +6,10 @@
 \usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{caption}
-\usepackage[backend=bibtex, style=authortitle-comp]{biblatex}
+\usepackage[backend=bibtex]{biblatex}
 \addbibresource{references.bib}
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+\setbeamertemplate{frametitle continuation}[from second][(cont'd)]
 
 \usetheme{Boadilla}
 \title[NFG-VAE]{Learning semi-Markovian DAGs with flow-based VAE}
@@ -45,62 +47,69 @@
 
 \section{Preliminaries}
 
-\begin{frame}{DAG and SEM}
+\subsection{Graphical Model}
+
+\begin{frame}[allowframebreaks]{DAG and SEM}
     \begin{itemize}
-        \item Directed Acyclic Graph(DAG) $\mathcal G = (V, E)$ with $V = \{1, \dots, m\}$ is used to represent a causal structure \footcite{pearl_2009}
+        \item Directed Acyclic Graph(DAG) $\mathcal G = (V, E)$ with $V = \{1, \dots, m\}$ is used to represent a causal structure \cite{pearl_2009}
         \item Linear Structural Equation Model(SEM) is defined as
         \begin{equation*}
             X_i = \sum_{j \in \text{Pa}(i)} \beta_{ij} X_j + \epsilon_i
         \end{equation*}
         where $\epsilon_i$ is a noise variable.
         \item Matrix form can be written as
-        \begin{equation}
+        \begin{equation*}
             \mathbf X = \mathbf A^T \mathbf X + \mathbf \epsilon
-        \end{equation}
+        \end{equation*}
         where $\mathbf A$ is an adjacency matrix of $\mathcal G$ and $\mathbf \epsilon$ is a noise vector.
     \end{itemize}
-\end{frame}
-
-\begin{frame}{DAG and SEM(Cont'd)}
+    \framebreak
     \begin{itemize}
         \item If $(\mathbf I-\mathbf A^T)$ is nonsingular, SEM can be written as
-        \begin{equation}
+        \begin{equation*}
             \mathbf X = (\mathbf I - \mathbf A^T)^{-1} \mathbf \epsilon
-        \end{equation}
+        \end{equation*}
         \item Usually we assume $\mathbf \epsilon \sim \mathcal N(\mathbf 0, \mathbf \Sigma)$ and
         \begin{equation*}
             \mathbf X \sim \mathcal N(\mathbf 0, (\mathbf I - \mathbf A^T)^{-1} \mathbf \Sigma (\mathbf I - \mathbf A)^{-1})
         \end{equation*}
+        \item In most cases, we assume $\mathbf \Sigma = \mathbf I$ or $\mathbf \Sigma = \mathbf D$ where $\mathbf D$ is a diagonal matrix.
+        \item DAG-GNN \cite{yu2019daggnn} generalizes linear SEM using a deep neural network.
+        \begin{equation*}
+            f_2^{-1}(X) = A^Tf_2^{-1}(X) + f_1(Z),
+        \end{equation*}
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Semi-Markovian DAG}
+\begin{frame}[allowframebreaks]{Semi-Markovian DAG}
     \begin{itemize}
-        \item Semi-Markovian DAG is a DAG where the noise variables have dependencies \footcite{Shipster2006semimarkovian}
+        \item DAGs have many convenient properties (e.g. Markov property, d-separation, etc.)
+        \item More general class of DAGs is acyclic directed mixed graphs (ADMGs) i.e. semi-Markovian DAGs
+        \item Semi-Markovian DAG is a DAG where the noise variables have dependencies \cite{Shipster2006semimarkovian}
         \item The noise vector $\mathbf \epsilon$ is a semi-Markovian noise vector if
-        \begin{equation}
+        \begin{equation*}
             \Sigma \in \mathcal{W}(G) := \{ \Sigma \in \mathbb R^{m\times m} : \Sigma_{ij} = \Sigma_{ji} = 0 \text{ if } i \notin \text{sib}(j) \}
-        \end{equation}
-        where $\text{sib}(j) = \{i : i \sim j \text{ in } G\}$ \footcite{wang2017empirical}
-        \item Learn cyclic adjacency matrix or acyclic adjacency matrix
+        \end{equation*}
+        where $\text{sib}(j) = \{i : i \sim j \text{ in } G\}$ \cite{wang2017empirical}
+        \item Learn cyclic adjacency matrix \cite{wang2017empirical} or acyclic adjacency matrix
     \end{itemize}
 \end{frame}
 
-\begin{frame}{DAG Learning}
+\subsection{DAG Learning}
+
+\begin{frame}[allowframebreaks]{DAG Learning}
     \begin{itemize}
         \item DAG learning is a problem of estimating $\mathcal G$ from $\mathbf X$
-        \item NP-hard problem \footcite{ChickeringNPhard}
-        \item Score-based methods \footcite{Spirtes2000} and constraint-based methods \footcite{ChickeringGES} are used
-        \item NOTEARS\footcite{zheng2018dags}: Combinatorial optimization to Continuous optimization problem
+        \item NP-hard problem \cite{ChickeringNPhard}
+        \item Score-based methods \cite{Spirtes2000} and constraint-based methods \cite{ChickeringGES} are used
+        \item NOTEARS\cite{zheng2018dags}: Combinatorial optimization to Continuous optimization problem
         \begin{equation*}
             \min_{\mathbf{A}} F(A) \text{ subject to } G(A) \in \mathbb{D} \Rightarrow 
             \min_{\mathbf{A}} F(A) \text{ subject to } h(A)=0
         \end{equation*}
         where $\mathbb D$ denotes the discrete space of DAGs on $m$ nodes and $h(A)=0$ iff $G(A)$ is acyclic.
     \end{itemize}
-\end{frame}
 
-\begin{frame}{DAG Learning(Cont'd)}
     \begin{block}{Theorem}
         A matrix $\mathbf A$ is the adjacency matrix of a DAG if and only if
         \begin{equation*}
@@ -117,47 +126,56 @@
     \end{block}
 \end{frame}
 
-\subsection*{VAE and Normalizing Flow}
+\subsection{VAE and Normalizing Flow}
 
 \begin{frame}{VAE}
     \begin{itemize}
         \item Variational Autoencoder(VAE) is a generative model that learns a latent variable model
         \item It is trained by maximizing the evidence lower bound(ELBO)
-        \begin{equation}
+        \begin{equation*}
             \mathcal L(\theta, \phi; \mathbf x) = \mathbb E_{q_\phi(\mathbf z | \mathbf x)}[\log p_\theta(\mathbf x | \mathbf z)] - \text{KL}(q_\phi(\mathbf z | \mathbf x) || p(\mathbf z))
-        \end{equation}
+        \end{equation*}
         \item $q_\phi(\mathbf z | \mathbf x)$ is an approximate posterior and $p_\theta(\mathbf x | \mathbf z)$ is a generative model
     \end{itemize}
 \end{frame}
 
 \begin{frame}{Normalizing Flow}
     \begin{itemize}
-        \item Normalizing flow transforms a simple distribution to a complex distribution \footcite{rezende15normalizingflows}
+        \item Normalizing flow transforms a simple distribution to a complex distribution \cite{rezende15normalizingflows}
         \item It is a sequence of invertible transformations $f_t : \mathbb R^d \to \mathbb R^d$
-        \begin{equation}
+        \begin{equation*}
             z_T = f_T \circ f_{T-1} \circ \cdots \circ f_1(z_0)
-        \end{equation}
+        \end{equation*}
         \item The probability density function of $z_T$ is
-        \begin{equation}
+        \begin{equation*}
             p(z_T) = p(z_0) \left| \det \left( \frac{\partial f_T \circ f_{T-1} \circ \cdots \circ f_1(z_0)}{\partial z_0} \right) \right|
-        \end{equation}
+        \end{equation*}
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Linear IAF}
+\begin{frame}[allowframebreaks]{Linear IAF}
     \begin{itemize}
-        \item Inverse Autoregressive Flow(IAF) is a normalizing flow that uses autoregressive transformation \footcite{kingma2016iaf}
+        \item Inverse Autoregressive Flow(IAF) is a normalizing flow that uses autoregressive transformation \cite{kingma2016iaf}
         \item Linear IAF is a special case of IAF where $f_t$ is a linear transformation
-        \begin{equation}
+        \begin{equation*}
             \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.
-        \end{equation}
+        \end{equation*}
         \item Transformation of the linear IAF can be written as
-        \begin{equation}
+        \begin{equation*}
             \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
-        \end{equation}
+        \end{equation*}
         where $\mathbf{L(x)}$ is a lower triangular matrix from encoder network.
         \item We can use more flexible prior distribution by using normalizing flow.
         \item When $\mathbf z_0$ has diagonal covariance, $\mathbf z_T$ then has full covariance matrix.
+        \item The KL divergence term of ELBO can be written as
+        \begin{equation*}
+            \begin{aligned}
+                D_{KL}(q_\phi(\mathbf{z}_0 | \mathbf{x}) \Vert p(\mathbf{z}_T)) &=
+                \log q_\phi(\mathbf{z}_0 | \mathbf{x}) - \log p(\mathbf{z}_T) \\
+                &= -\frac{1}{2}(\mathbf{z}_0 -\mu_\phi)^T\Sigma_\phi^{-1}(\mathbf{z}_0 -\mu_\phi) + \frac{1}{2}\mathbf{z}_T^T\mathbf{z}_T \\
+            \end{aligned}
+        \end{equation*}
+        where $\mu_\phi$ and $\Sigma_\phi$ are the mean and covariance matrix from the encoder network.
     \end{itemize}
 \end{frame}
 
@@ -176,9 +194,9 @@
 \begin{frame}{Learning}
     \begin{itemize}
         \item The optimization procedure is minimizing the following loss function:
-        \begin{equation}
+        \begin{equation*}
             \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
-        \end{equation}
+        \end{equation*}
         \item The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix.
         \item $\tau=0.1 \times ({m\over 50})^2$ works well in our experiment setting.
         \item The third and fourth terms are the augmented Lagrangian terms.
@@ -189,26 +207,24 @@
 
 \section{Experiment}
 
-\begin{frame}{Experiment}
+\begin{frame}[allowframebreaks]{Experiment}
     \begin{itemize}
-        \item We compare our method with the DAG-GNN \footcite{yu2019daggnn} with random graph datasets.
+        \item We compare our method with the DAG-GNN \cite{yu2019daggnn} with random graph datasets.
         \item thresholding value of extracting graph as 0.3
         \item Erdős–Rényi random graph with 5000 samples
         \item Node size : 10, 20, 30, and 50 nodes
-        \item Noise type : (Independent) Gaussian, Laplace, Exponential and (Dependent) Gaussian
+        \item Noise type
+        \begin{itemize}
+            \item Independent : $\epsilon_i \sim \mathcal N(0, 1)$, $\epsilon_i \sim \text{Laplace}(0, 1)$, $\epsilon_i \sim \text{Exp}(1)$
+            \item Dependent : $\epsilon_i \sim \mathcal N(0, \mathbf \Sigma)$ where $\mathbf \Sigma$ is a covariance matrix of semi-Markovian DAG
+        \end{itemize}
     \end{itemize}
-\end{frame}
-
-\begin{frame}{Experiment(Cont'd)}
     \begin{figure}
         \centering
         \includegraphics[width=0.8\textwidth]{fig/mixed_graph_example.png}
         \caption{Example of mixed graph}
         \label{fig:mixed_graph_example}
     \end{figure}
-\end{frame}
-
-\begin{frame}{Experiment(Cont'd)}
     \begin{figure}
         \centering
         \includegraphics[width=0.8\textwidth]{fig/mixed_graph_adjacency.png}
@@ -229,7 +245,7 @@
 
 \section{Result}
 
-\begin{frame}{Independent Noise}
+\begin{frame}[allowframebreaks]{Independent Noise}
     \begin{columns}
         \begin{column}{0.5\textwidth}
             \begin{figure}
@@ -251,9 +267,6 @@
     \begin{itemize}
         \item In the case of independent Gaussian noise, DAG-GNN(orange) performs better than our method(blue).
     \end{itemize}
-\end{frame}
-
-\begin{frame}{Independent Noise(Cont'd)}
     \begin{columns}
         \begin{column}{0.5\textwidth}
             \begin{figure}
@@ -273,9 +286,6 @@
         \end{column}
     \end{columns}
     In the case of independent Laplace noise, our method(blue) performs better than DAG-GNN(orange).
-\end{frame}
-
-\begin{frame}{Independent Noise(Cont'd)}
     \begin{columns}
         \begin{column}{0.5\textwidth}
             \begin{figure}
@@ -295,9 +305,7 @@
         \end{column}
     \end{columns}
     In the case of independent Exponential noise, our method(blue) performs better than DAG-GNN(orange).
-\end{frame}
 
-\begin{frame}{Independent Noise(Cont'd)}
     \begin{columns}
         \begin{column}{0.5\textwidth}
             \begin{figure}
@@ -317,24 +325,24 @@
         \end{column}
     \end{columns}
     Considering the number of predicted edges with the SHD and FDR, our method(blue) performs better than DAG-GNN(orange).
-\end{frame}
 
-\begin{frame}
     \begin{figure}
         \centering
         \includegraphics[height=3.5cm]{fig/comparison_indep_30_laplace_seed301.pdf}
         \label{fig:ind_exponential_comparison}
+        \captionsetup{justification=centering}
+        \caption{Comparison of estimated graphs with Laplace noise}
     \end{figure}
     \begin{figure}
         \centering
         \includegraphics[height=3.5cm]{fig/comparison_indep_30_exponential_seed301.pdf}
         \label{fig:ind_exponential_comparison}
         \captionsetup{justification=centering}
-        \caption{Comparison of estimated graphs with Laplace(above) and Exponential(below) noise}
+        \caption{Comparison of estimated graphs with Exponential noise}
     \end{figure}
 \end{frame}
 
-\begin{frame}{Dependent Noise}
+\begin{frame}[allowframebreaks]{Dependent Noise}
     Proportion of bidirectional edges fixed to 0.3.
     \begin{columns}
         \begin{column}{0.5\textwidth}
@@ -354,9 +362,7 @@
             \end{figure}
         \end{column}
     \end{columns}
-\end{frame}
 
-\begin{frame}{Dependent Noise(Cont'd)}
     Proportion of bidirectional edges fixed to 0.3.
     \begin{figure}
         \centering
@@ -368,9 +374,7 @@
         \item In the case of dependent Gaussian noise, our method(blue) performs better than DAG-GNN(orange).
         \item Considering the stable number of predicted edges with the SHD and FDR, our method(blue) outperforms.
     \end{itemize}
-\end{frame}
 
-\begin{frame}{Dependent Noise(Cont'd)}
     Node size $m=10$ : similar performance between DAG-GNN(orange) and our method(blue).
     \begin{columns}
         \begin{column}{0.5\textwidth}
@@ -390,9 +394,7 @@
             \end{figure}
         \end{column}
     \end{columns}
-\end{frame}
 
-\begin{frame}{Dependent Noise(Cont'd)}
     Node size $m=20$ : our method(blue) performs better than DAG-GNN(orange).
     \begin{columns}
         \begin{column}{0.5\textwidth}
@@ -412,9 +414,7 @@
             \end{figure}
         \end{column}
     \end{columns}
-\end{frame}
 
-\begin{frame}{Dependent Noise(Cont'd)}
     Node size $m=30$ : our method(blue) performs better than DAG-GNN(orange).
     \begin{columns}
         \begin{column}{0.5\textwidth}
@@ -434,9 +434,7 @@
             \end{figure}
         \end{column}
     \end{columns}
-\end{frame}
 
-\begin{frame}{Dependent Noise(Cont'd)}
     Node size $m=50$ : our method(blue) performs better than DAG-GNN(orange).
     \begin{columns}
         \begin{column}{0.5\textwidth}
@@ -456,9 +454,7 @@
             \end{figure}
         \end{column}
     \end{columns}
-\end{frame}
 
-\begin{frame}{Number of predicted edges}
     \begin{columns}
         \begin{column}{0.5\textwidth}
             \begin{figure}
@@ -495,6 +491,30 @@
         \end{figure}
         \end{column}
     \end{columns}    
+
+    \begin{itemize}
+        \item FPR : our method performs better than DAG-GNN.\\
+        \item TPR : similar performance
+    \end{itemize}
+
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \begin{figure}
+            \centering
+            \includegraphics[scale=0.4]{fig/TPR_dependence_30_DAG_threshold0.3.pdf}
+            \caption{TPR at $m=30$}
+            \label{fig:dep_gaussian_tpr_30}
+            \end{figure}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \begin{figure}
+            \centering
+            \includegraphics[scale=0.4]{fig/FPR_dependence_30_DAG_threshold0.3.pdf}
+            \caption{FPR at $m=30$}
+            \label{fig:dep_gaussian_fpr_30}
+            \end{figure}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 \section{Conclusion}
@@ -508,7 +528,7 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Conclusion(Cont'd)}
+\begin{frame}{Conclusion}
     \begin{itemize}
         \item However, contrary to our initial expectations, the lower triangular matrix $\mathbf L$ learned in the IAF layer did not capture the covariance matrix of the actual noise variables.
         \item This seems to be due to the entanglement problem in the latent space, and resolving this issue remains a future research task.

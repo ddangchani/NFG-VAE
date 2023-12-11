@@ -30,7 +30,6 @@
 \usepackage{hyperref}
 \usepackage[inkscapeformat=png]{svg}
 \modulolinenumbers[5]
-% \linenumbers
 
 \usepackage{titlesec}
 \titleformat{\section}
@@ -66,18 +65,62 @@ Based on the continuous acyclicity constraint neural network-based approaches kn
 
 However, in some cases, the noise variables may not be independent. For example, in a linear structural equation model with correlated hidden variables, the noise variables may exhibit a dependency structure. In such cases, edges with correlation in the noise variable are considered bidirectional edges, and these models are referred to as semi-Markovian \cite{Shipster2006semimarkovian}. Since the prior distribution of the noise variable is assumed to be a standard Gaussian in DAG-GNN or other graph neural networks, it becomes challenging to learn the structure of semi-Markovian DAGs. Therefore, we propose a method to learn the full covariance matrix of the noise variable using a flow-based VAE.
 
-\section{Directed Acyclic Graphs and Mixed Graphs}
-\subsection{Directed Acyclic Graphs}
 
-Here is the introduction of DAGs
+\section{Preliminaries}
+
+\subsection{Directed Acyclic Graphs and linear SEMs}
+
+Directed acyclic graphs (DAGs) are graphs that have directed edges and no cycles, which are often used for describing causality among variables. To identify causal relationships between variables, structural equation models are commonly used.\\
+
+Let $A \in \mathbb{R}^{m \times m}$ be the weighted adjacency matrix of the DAG with $m$ nodes and $X \in \mathbb{R}^{m \times d}$ be a sample of a joint distribution of $m$ variables, where each row corresponds to one variable. In the literature, a variable is typically a scalar, but it can be trivially generalized to a $d$-dimensional vector under the current setting. The linear SEM model reads
+\begin{equation}
+X = A^TX + Z,
+\end{equation}
+where $Z \in \mathbb{R}^{m \times d}$ is the noise matrix. When the graph nodes are sorted in the topological order, the matrix $A$ is strictly upper triangular. Hence, ancestral sampling from the DAG is equivalent to generating a random noise $Z$ followed by a triangular solve
+\begin{equation}
+X = (I - A^T)^{-1}Z,
+\end{equation}
+
+Especially, DAG-GNN generalizes linear SEM to learn the weighted adjacency matrix $A$ of a DAG by using a deep generative model\cite{yu2019daggnn}. The generalized linear SEM follows
+\begin{equation}
+    f_2^{-1}(X) = A^Tf_2^{-1}(X) + f_1(Z),
+\end{equation}
+where $f_1$ and $f_2$ are the parameterized functions that effectively perform (possibly nonlinear) transforms on $Z$ and $X$, respectively. And $f_2$ is invertible.
+
+
 
 \subsection{Mixed Graphs}
 
-Here is the introduction of mixed graphs
+There are several graphical representations of causal models, with DAGs being the most popular due to their simplicity. DAGs are suitable under the assumptions of causal sufficiency (i.e., no latent common causes of the observed variables), acyclicity (absence of feedback loops), and no selection bias (i.e., no implicit conditioning on a common effect of the observed variables). DAGs have many convenient properties, including the Markov property (with different equivalent formulations, the most prominent being d-separation) and a simple causal interpretation. A more general class of graphs is acyclic directed mixed graphs (ADMGs), which use bidirected edges to represent latent confounding and also have a convenient Markov property (sometimes referred to as m-separation) and causal interpretation. When the assumption of acyclicity is dropped, allowing for feedback, the more general class of directed mixed graphs (DMGs) can be used, which are naturally associated with (possibly cyclic) SEMs and can represent feedback loops. The corresponding Markov properties and causal interpretation in the cyclic case are more subtle\cite{Bongers_2021}.\\
+
+In SEMs, if error terms are independent, we can describe the relationships between variables using a DAG. But if error terms are dependent, a SEM can be represented by a DMG which has both directed edges and bidirected edges. The former is referred to as the Markovian model. And the latter is the semi-Markovian model\cite{Shipster2006semimarkovian}.
 
 \subsection{Graph Learning}
 
-Here is the introduction of graph learning
+\subsubsection{Constraint-Based and Score-Based Approaches}
+
+Most constraint-based approaches test for conditional independence in the empirical joint distribution in order to construct a graph that reflects this conditional independence. There are often multiple graphs that fulfill a given set of conditional independence, and so it is common for constraint-based approaches to output a graph representing some Markov equivalence class (MEC).\\
+
+Score-based approaches test the validity of a candidate graph $\mathcal{G}$ according to some scoring function $S$. The goal is therefore stated as\cite{peters}:
+\begin{equation}
+    \hat{\mathcal{G}} = \underset{\mathcal{G} \ \text {over} \ X}{\arg\max} S(\mathcal{D}, \mathcal{G})
+\end{equation}
+
+where $\mathcal{D}$ represents the empirical data for variables X. 
+
+\subsubsection{Continuous optimization-Based Approaches}
+
+Continuous optimization methods are pervasive in the field of deep learning, whereby highly parameterized networks are optimized using variations on gradient descent\cite{Goodfellow}. Recently, there have been an increasing number of methods which seek to learn structure from data, while leveraging the advantages of continuous optimization. These continuous optimization approaches recast the combinatoric graph-search problem into a continuous optimization problem\cite{zheng2018dags}. In Equation \ref{CO}, the left-hand side represents the traditional approach, which seeks the adjacency matrix A that minimizes some score function $S(A)$, subject to the implied graph $\mathcal{G}(A)$ being in the set of valid DAGs. The right-hand side represents a characterization of the continuous optimization problem which, again, seeks the adjacency matrix A that minimizes some score function $S(A)$, but this time subject to the constraint $h(A) = 0$. Here, $h$ is the function used to enforce acyclicity in the inferred graph.
+\begin{equation}
+\label{CO}
+\begin{aligned}  
+    \min_{A \in \mathbb{R}^{d \times d}}S(A)  \qquad && \qquad \min_{A \in \mathbb{R}^{d \times d}}S(A) \\
+    \text{s.t.} \quad \mathcal{G}(A) \in DAGs \qquad && \qquad \text{s.t.} \quad h(A) = 0
+\end{aligned}
+\end{equation}
+
+Recently, continuous optimization-based approaches have been explored with the attention of deep learning methods. NOTEARS\cite{zheng2018dags} suggests a continuous optimization algorithm to learn DAGs for the first time. DAG-GNN\cite{yu2019daggnn} enhances NOTEARS by incorporating neural network functions and variational inference such that the score function is the Evidence Lower BOund (ELBO). Our model extends DAG-GNN by applying normalizing flows into Variational Autoencoders.
+
 
 \section{Variational Autoencoders and Normalizing Flows}
 
