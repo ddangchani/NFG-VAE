@@ -47,7 +47,7 @@
 
 \begin{frame}{DAG and SEM}
     \begin{itemize}
-        \item Directed Acyclic Graph(DAG) $\mathcal G = (V, E)$ with $V = \{1, \dots, m\}$
+        \item Directed Acyclic Graph(DAG) $\mathcal G = (V, E)$ with $V = \{1, \dots, m\}$ is used to represent a causal structure \footcite{pearl_2009}
         \item Linear Structural Equation Model(SEM) is defined as
         \begin{equation*}
             X_i = \sum_{j \in \text{Pa}(i)} \beta_{ij} X_j + \epsilon_i
@@ -63,14 +63,14 @@
 
 \begin{frame}{DAG and SEM(Cont'd)}
     \begin{itemize}
-        \item If $I-\mathbf A^T$ is nonsingular, SEM can be written as
+        \item If $(\mathbf I-\mathbf A^T)$ is nonsingular, SEM can be written as
         \begin{equation}
             \mathbf X = (\mathbf I - \mathbf A^T)^{-1} \mathbf \epsilon
         \end{equation}
         \item Usually we assume $\mathbf \epsilon \sim \mathcal N(\mathbf 0, \mathbf \Sigma)$ and
-        \begin{equation}
+        \begin{equation*}
             \mathbf X \sim \mathcal N(\mathbf 0, (\mathbf I - \mathbf A^T)^{-1} \mathbf \Sigma (\mathbf I - \mathbf A)^{-1})
-        \end{equation}
+        \end{equation*}
     \end{itemize}
 \end{frame}
 
@@ -82,6 +82,7 @@
             \Sigma \in \mathcal{W}(G) := \{ \Sigma \in \mathbb R^{m\times m} : \Sigma_{ij} = \Sigma_{ji} = 0 \text{ if } i \notin \text{sib}(j) \}
         \end{equation}
         where $\text{sib}(j) = \{i : i \sim j \text{ in } G\}$ \footcite{wang2017empirical}
+        \item Learn cyclic adjacency matrix or acyclic adjacency matrix
     \end{itemize}
 \end{frame}
 
@@ -89,12 +90,31 @@
     \begin{itemize}
         \item DAG learning is a problem of estimating $\mathcal G$ from $\mathbf X$
         \item NP-hard problem \footcite{ChickeringNPhard}
-        \item Score-based methods and constraint-based methods are used
-        \item NOTEARS : conversion of DAG learning to continuous optimization problem \footcite{zheng2018dags}
-        \begin{equation}
-            tr(A)
-        \end{equation}
+        \item Score-based methods \footcite{Spirtes2000} and constraint-based methods \footcite{ChickeringGES} are used
+        \item NOTEARS\footcite{zheng2018dags}: Combinatorial optimization to Continuous optimization problem
+        \begin{equation*}
+            \min_{\mathbf{A}} F(A) \text{ subject to } G(A) \in \mathbb{D} \Rightarrow 
+            \min_{\mathbf{A}} F(A) \text{ subject to } h(A)=0
+        \end{equation*}
+        where $\mathbb D$ denotes the discrete space of DAGs on $m$ nodes and $h(A)=0$ iff $G(A)$ is acyclic.
     \end{itemize}
+\end{frame}
+
+\begin{frame}{DAG Learning(Cont'd)}
+    \begin{block}{Theorem}
+        A matrix $\mathbf A$ is the adjacency matrix of a DAG if and only if
+        \begin{equation*}
+            h(A) = \rm{tr}(\exp(\mathbf A \circ \mathbf A)) = m
+        \end{equation*}
+        where $\circ$ denotes the Hadamard product.
+    \end{block}
+    \begin{block}{Theorem}
+        A matrix $\mathbf A$ is the adjacency matrix of a DAG if and only if
+        \begin{equation*}
+            \rm{tr}[(I + \alpha \mathbf A \circ \mathbf A)^m] = m
+        \end{equation*}
+        for any $\alpha>0$.
+    \end{block}
 \end{frame}
 
 \subsection*{VAE and Normalizing Flow}
@@ -131,12 +151,13 @@
         \begin{equation}
             \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.
         \end{equation}
-        \item The probability density function of $z_T$ is
+        \item Transformation of the linear IAF can be written as
         \begin{equation}
             \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
         \end{equation}
         where $\mathbf{L(x)}$ is a lower triangular matrix from encoder network.
         \item We can use more flexible prior distribution by using normalizing flow.
+        \item When $\mathbf z_0$ has diagonal covariance, $\mathbf z_T$ then has full covariance matrix.
     \end{itemize}
 \end{frame}
 
@@ -154,12 +175,12 @@
 
 \begin{frame}{Learning}
     \begin{itemize}
-        \item We use the same optimization procedure as DAG-GNN \footcite{yu2019daggnn}.
         \item The optimization procedure is minimizing the following loss function:
         \begin{equation}
             \mathcal{L}(A, W, \lambda) =-\mathcal{L}_{\mathrm{ELBO}} + \tau \Vert A \Vert_1 + \lambda h(A) + \frac{c}{2} |h(A)|^2.
         \end{equation}
         \item The second term is the L1 regularization term, which encourages sparsity of the adjacency matrix.
+        \item $\tau=0.1 \times ({m\over 50})^2$ works well in our experiment setting.
         \item The third and fourth terms are the augmented Lagrangian terms.
         \item Gradually increasing the value of $c$ during the training process results the acyclicity constraint to zero.
     \end{itemize}
@@ -176,6 +197,24 @@
         \item Node size : 10, 20, 30, and 50 nodes
         \item Noise type : (Independent) Gaussian, Laplace, Exponential and (Dependent) Gaussian
     \end{itemize}
+\end{frame}
+
+\begin{frame}{Experiment(Cont'd)}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.8\textwidth]{fig/mixed_graph_example.png}
+        \caption{Example of mixed graph}
+        \label{fig:mixed_graph_example}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Experiment(Cont'd)}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.8\textwidth]{fig/mixed_graph_adjacency.png}
+        \caption{Adjacency matrix of previous example graph}
+        \label{fig:mixed_graph_adjacency}
+    \end{figure}
 \end{frame}
 
 \begin{frame}{Experiment(Cont'd)}
