@@ -171,7 +171,7 @@ The probability density function of $x$ can be obtained by the change of variabl
 
 In VAE, the prior distribution of the latent variable $\mathbf{z}$ is typically assumed to be a standard Gaussian distribution or a multivariate Gaussian distribution with a diagonal covariance matrix. \cite{kingma2013auto} However, to employ a more flexible prior distribution, we can utilize normalizing flows to transform the standard Gaussian distribution into a more complex distribution. This allows us to capture richer and more intricate patterns in the latent space, such as correlation between latent variables.\\
 
-There are several types of normalizing flows, such as Householder flow \cite{tomczak2017householder}, planar flow \cite{rezende15normalizingflows}, etc. In this paper, we use the inverse autoregressive flow (IAF) \cite{kingma2016iaf}, especially linear IAF. The linear IAF is defined as follows:
+There are several types of normalizing flows, such as Householder flow \cite{tomczak2017householder}, planar flow \cite{rezende15normalizingflows}, etc. In this paper, we use the inverse autoregressive flow (IAF) \cite{kingma2016iaf}, especially linear IAF. The inverse autoregressive flow is defined as follows:
 
 \begin{equation}
     \bf z_t = \bf \mu_t + \bf \sigma_t \odot \bf z_{t-1}.

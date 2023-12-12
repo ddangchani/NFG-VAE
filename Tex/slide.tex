@@ -156,15 +156,18 @@
 \begin{frame}[allowframebreaks]{Linear IAF}
     \begin{itemize}
         \item Inverse Autoregressive Flow(IAF) is a normalizing flow that uses autoregressive transformation \cite{kingma2016iaf}
-        \item Linear IAF is a special case of IAF where $f_t$ is a linear transformation
-        \begin{equation*}
-            \mathbf z_t = \mathbf \mu_t + \mathbf \sigma_t \odot \mathbf z_{t-1}.
-        \end{equation*}
+        \begin{align*}
+            \mathbf z_0 &= \mathbf \mu_0 + \mathbf \sigma_0 \odot \mathbf \epsilon, \quad \mathbf \epsilon \sim \mathcal N(\mathbf 0, \mathbf I) \\
+            \mathbf z_t &= \mathbf \mu_t + \mathbf \sigma_t \odot \mathbf z_{t-1}.
+        \end{align*}
+        \item Linear IAF is the simplest case of IAF where $f_t$ is a linear transformation
         \item Transformation of the linear IAF can be written as
         \begin{equation*}
             \mathbf{z}_T = \mathbf{L(x)} \cdot \mathbf{z}_0.
         \end{equation*}
         where $\mathbf{L(x)}$ is a lower triangular matrix from encoder network.
+        \framebreak
+        \item $\mathbf L$ can be regarded as a cholesky decomposition of covariance matrix.
         \item We can use more flexible prior distribution by using normalizing flow.
         \item When $\mathbf z_0$ has diagonal covariance, $\mathbf z_T$ then has full covariance matrix.
         \item The KL divergence term of ELBO can be written as
@@ -237,7 +240,7 @@
     \begin{itemize}
         \item We evaluate the performance of our method using two metrics: Structural Hamming Distance (SHD), False Discovery Rate (FDR) with respect to the number of predicted edges.
         \item SHD measures the number of edge additions, deletions, and reversals required to transform the estimated graph into the true graph.
-        \item FDR represents the ratio of false positives to the total number of predicted edges.
+        \item FDR measures the proportion of incorrectly predicted edges among the predicted edges.
         \item These metrics are calculated by comparing the estimated graph with the true DAG.
         \item For each combination, we generate at least 5 random graphs and calculate the average metrics.
     \end{itemize}
