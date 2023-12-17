@@ -200,3 +200,8 @@ run_script
 runscript.ps1
 runscript.zsh
 .DS_Store
+
+results/
+results/*
+Tex/
+Tex/*
