@@ -30,6 +30,11 @@ python train.py --dependence_type=0 --graph_dist='laplace' --node_size=20 --seed
 > Possible noise_dist : 'normal', 'uniform', 'exponential', 'laplace', 'gumbel'
 
 
+## Paper
+
+- [paper Link](https://github.com/ddangchani/NFG-VAE/blob/main/paper.pdf)
+
+
 ## Code Sources
 Code benefit from the following works
 - [DAG NOTEARS](https://github.com/xunzheng/notears)
